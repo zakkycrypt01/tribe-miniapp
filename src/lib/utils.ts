@@ -54,14 +54,14 @@ export async function getFarcasterDomainManifest(): Promise<Manifest> {
       version: '1',
       name: APP_NAME ?? 'TRIBE',
       subtitle: "LP Yield Copy Trading on Base", 
-      description: "An LP yield copy-trading platform built on the Base blockchain that enables followers to seamlessly mirror the liquidity provision strategies of proven, high-performing 'Leaders,' thereby democratizing access to professional LP management and maximizing yield potential",
+      description: "A platform for LP yield copy-trading that is based on the Base blockchain allows followers to easily mimic the liquidity provision tactics of successful, 'Leaders,' democratizing access to expert LP management and optimizing profitability.",
       screenshotUrls: [`${APP_URL}/TRIBE.jpg`],
-      primaryCategory: "defi",
-      tags: ["defi", "crypto", "liquidity", "copytrading","LP Yield"],
-      heroImageUrl: `${APP_URL}/TRIBE.jpg`, 
-      tagline: "",
-      ogTitle: "",
-      ogDescription: "",
+      primaryCategory: "finance",
+      tags: ["defi","crypto","liquidity","copytrading","LP Yield"],
+      heroImageUrl: `${APP_URL}/TRIBE.jpg`,
+      tagline: "Join TRIBE - Copy Top LPs on Base!",
+      ogTitle: "TRIBE",
+      ogDescription: "TRIBE: LP Yield Copy Trading on Base",
       ogImageUrl: `${APP_URL}/TRIBE.jpg`,
 
       homeUrl: APP_URL,
@@ -72,5 +72,8 @@ export async function getFarcasterDomainManifest(): Promise<Manifest> {
       splashBackgroundColor: APP_SPLASH_BACKGROUND_COLOR,
       webhookUrl: APP_WEBHOOK_URL,
     },
+    "baseBuilder": {
+      "ownerAddress": "0x4ADA72A74E3C6f68542c4a9c6650d2dc25b8EdC3"
+    }
   };
 }
