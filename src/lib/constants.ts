@@ -47,7 +47,7 @@ export const APP_TAGS: string[] = ['defi'];
  * URL for the app's icon image.
  * Used in app store listings and UI elements.
  */
-export const APP_ICON_URL: string = `${APP_URL}/icon.png`;
+export const APP_ICON_URL: string = `${APP_URL}/TRIBE.jpg`;
 
 /**
  * URL for the app's Open Graph image.
@@ -59,7 +59,7 @@ export const APP_OG_IMAGE_URL: string = `${APP_URL}/api/opengraph-image`;
  * URL for the app's splash screen image.
  * Displayed during app loading.
  */
-export const APP_SPLASH_URL: string = `${APP_URL}/splash.png`;
+export const APP_SPLASH_URL: string = `${APP_URL}/TRIBE.jpg`;
 
 /**
  * Background color for the splash screen.
