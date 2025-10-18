@@ -1,0 +1,76 @@
+{
+  "placeholderImages": [
+    {
+      "id": "avatar-1",
+      "description": "User avatar 1",
+      "imageUrl": "https://picsum.photos/seed/101/100/100",
+      "imageHint": "person face"
+    },
+    {
+      "id": "avatar-2",
+      "description": "User avatar 2",
+      "imageUrl": "https://picsum.photos/seed/102/100/100",
+      "imageHint": "person face"
+    },
+    {
+      "id": "avatar-3",
+      "description": "User avatar 3",
+      "imageUrl": "https://picsum.photos/seed/103/100/100",
+      "imageHint": "person face"
+    },
+    {
+      "id": "avatar-4",
+      "description": "User avatar 4",
+      "imageUrl": "https://picsum.photos/seed/104/100/100",
+      "imageHint": "person face"
+    },
+    {
+      "id": "token-eth",
+      "description": "Ethereum token icon",
+      "imageUrl": "https://picsum.photos/seed/eth/64/64",
+      "imageHint": "ethereum logo"
+    },
+    {
+      "id": "token-weth",
+      "description": "Wrapped Ethereum token icon",
+      "imageUrl": "https://picsum.photos/seed/weth/64/64",
+      "imageHint": "ethereum logo"
+    },
+    {
+      "id": "token-usdc",
+      "description": "USDC token icon",
+      "imageUrl": "https://picsum.photos/seed/usdc/64/64",
+      "imageHint": "usdc logo"
+    },
+    {
+      "id": "token-aero",
+      "description": "Aerodrome token icon",
+      "imageUrl": "https://picsum.photos/seed/aero/64/64",
+      "imageHint": "aerodrome logo"
+    },
+    {
+      "id": "token-wbtc",
+      "description": "Wrapped Bitcoin token icon",
+      "imageUrl": "https://picsum.photos/seed/wbtc/64/64",
+      "imageHint": "bitcoin logo"
+    },
+    {
+      "id": "token-uni",
+      "description": "Uniswap token icon",
+      "imageUrl": "https://picsum.photos/seed/uni/64/64",
+      "imageHint": "uniswap logo"
+    },
+    {
+      "id": "token-dino",
+      "description": "Dino token icon",
+      "imageUrl": "https://picsum.photos/seed/dino/64/64",
+      "imageHint": "dinosaur logo"
+    },
+    {
+      "id": "token-kta",
+      "description": "KTA token icon",
+      "imageUrl": "https://picsum.photos/seed/kta/64/64",
+      "imageHint": "abstract logo"
+    }
+  ]
+}

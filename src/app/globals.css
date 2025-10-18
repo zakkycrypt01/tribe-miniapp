@@ -1,118 +1,89 @@
-/**
- * DESIGN SYSTEM - DO NOT EDIT UNLESS NECESSARY
- * 
- * This file contains the centralized design system for the mini app.
- * These component classes establish the visual consistency across all components.
- * 
- * ⚠️  AI SHOULD NOT NORMALLY EDIT THIS FILE ⚠️
- * 
- * Instead of modifying these classes, AI should:
- * 1. Use existing component classes (e.g., .btn, .card, .input)
- * 2. Use Tailwind utilities for one-off styling
- * 3. Create new React components rather than new CSS classes
- * 4. Only edit this file for specific bug fixes or accessibility improvements
- * 
- * When AI needs to style something:
- * ✅ Good: <button className="btn btn-primary">Click me</button>
- * ✅ Good: <div className="bg-primary text-white px-4 py-2 rounded">Custom</div>
- * ❌ Bad: Adding new CSS classes here for component-specific styling
- * 
- * This design system is intentionally minimal to prevent bloat and maintain consistency.
- */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: 'Inter', Helvetica, Arial, sans-serif;
-}
-
-* {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-
-*::-webkit-scrollbar {
-  display: none;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 @layer base {
   :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 222.2 84% 4.9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 217.2 91.2% 59.8%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 222.2 84% 4.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  .dark {
+    --background: 222.2 84% 10%;
+    --foreground: 0 0% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 15%;
+    --input: 0 0% 20%;
+    --ring: 217.2 91.2% 59.8%;
+    --chart-1: 140 80% 50%;
+    --chart-2: 199 79% 61%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 217.2 91.2% 59.8%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    --golden: 45 95% 51%;
   }
 }
 
-@layer components {
-  /* Global container styles for consistent layout */
-  .container {
-    @apply mx-auto max-w-md px-4;
+@layer base {
+  * {
+    @apply border-border;
   }
-  
-  .container-wide {
-    @apply mx-auto max-w-lg px-4;
-  }
-  
-  .container-narrow {
-    @apply mx-auto max-w-sm px-4;
-  }
-
-  /* Global card styles */
-  .card {
-    @apply bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm;
-  }
-  
-  .card-primary {
-    @apply bg-primary/10 border-primary/20;
-  }
-
-  /* Global button styles */
-  .btn {
-    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
-  }
-  
-  .btn-primary {
-    @apply bg-primary text-white hover:bg-primary-dark focus:ring-primary;
-  }
-  
-  .btn-secondary {
-    @apply bg-secondary text-gray-900 hover:bg-gray-200 focus:ring-gray-500 dark:bg-secondary-dark dark:text-gray-100 dark:hover:bg-gray-600;
-  }
-  
-  .btn-outline {
-    @apply border border-gray-300 bg-transparent hover:bg-gray-50 focus:ring-gray-500 dark:border-gray-600 dark:hover:bg-gray-800;
-  }
-
-  /* Global input styles */
-  .input {
-    @apply block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400;
-  }
-
-  /* Global loading spinner */
-  .spinner {
-    @apply animate-spin rounded-full border-2 border-gray-300 border-t-primary;
-  }
-  
-  .spinner-primary {
-    @apply animate-spin rounded-full border-2 border-white border-t-transparent;
-  }
-
-  /* Global focus styles */
-  .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
+  body {
+    @apply bg-background text-foreground;
   }
 }

@@ -4,6 +4,8 @@ import { getSession } from '~/auth';
 import '~/app/globals.css';
 import { Providers } from '~/app/providers';
 import { APP_NAME, APP_DESCRIPTION } from '~/lib/constants';
+import { Toaster } from '@/components/ui/toaster';
+import { AppWrapper } from '@/components/app/app-wrapper';
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -18,10 +20,13 @@ export default async function RootLayout({
   const session = await getSession();
 
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className='dark'>
+      <body className="font-body antialiased">
         <Providers session={session}>
+          <AppWrapper>
           {children}
+        </AppWrapper>
+        <Toaster />
         </Providers>
       </body>
     </html>
