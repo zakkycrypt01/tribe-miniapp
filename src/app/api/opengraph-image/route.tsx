@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
             <img src={user.pfp_url} alt="Profile" tw="w-full h-full object-cover" />
           </div>
         )}
-        <h1 tw="text-8xl text-white">{user?.display_name ? `Hello from ${user.display_name ?? user.username}!` : 'Hello!'}</h1>
-        <p tw="text-5xl mt-4 text-white opacity-80">Powered by Neynar 🪐</p>
+        <img src="/icon.png" alt="Icon" className="mx-auto mb-4 w-24 h-24" />
+        <p tw="text-5xl mt-4 text-white opacity-80">Experience the power of TRIBE!</p>
       </div>
     ),
     {
