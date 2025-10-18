@@ -57,7 +57,7 @@ export async function getFarcasterDomainManifest(): Promise<Manifest> {
       description: "A platform for LP yield copy-trading that is based on the Base blockchain allows followers to easily mimic the liquidity provision tactics of successful traders.",
       screenshotUrls: [`${APP_URL}/TRIBE.jpg`],
       primaryCategory: "finance",
-      tags: ["defi","crypto","liquidity","copytrading","LP Yield"],
+      tags: ["defi","crypto","liquidity","copytrading","LP-Yield"],
       heroImageUrl: `${APP_URL}/TRIBE.jpg`,
       tagline: "Join TRIBE Now!",
       ogTitle: "TRIBE",
