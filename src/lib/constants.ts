@@ -72,15 +72,15 @@ export const APP_SPLASH_BACKGROUND_COLOR: string = '#f7f7f7';
  * Used to associate the mini app with a Farcaster account.
  * If not provided, the mini app will be unsigned and have limited capabilities.
  */
-export const APP_ACCOUNT_ASSOCIATION: AccountAssociation | undefined =
-  undefined;
+// export const APP_ACCOUNT_ASSOCIATION: AccountAssociation | undefined =
+//   undefined;
 
 // --- UI Configuration ---
 /**
  * Text displayed on the main action button.
  * Used for the primary call-to-action in the mini app.
  */
-export const APP_BUTTON_TEXT: string = 'Launch Mini App';
+export const APP_BUTTON_TEXT: string = 'Launch TRIBE';
 
 // --- Integration Configuration ---
 /**

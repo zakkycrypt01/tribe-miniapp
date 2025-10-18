@@ -13,7 +13,6 @@ import {
   APP_TAGS,
   APP_URL,
   APP_WEBHOOK_URL,
-  APP_ACCOUNT_ASSOCIATION,
 } from './constants';
 
 export function cn(...inputs: ClassValue[]) {
@@ -46,7 +45,11 @@ export function getMiniAppEmbedMetadata(ogImageUrl?: string) {
 
 export async function getFarcasterDomainManifest(): Promise<Manifest> {
   return {
-    accountAssociation: APP_ACCOUNT_ASSOCIATION!,
+  "accountAssociation": {
+  "header": "eyJmaWQiOjU2MDM0OSwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDBCN0Y3ZGEwMkZlZUM4NkFGNDQ4NkFjNTM1RjQ4NTMyYjFFQzNiMzcifQ",
+  "payload": "eyJkb21haW4iOiJ0cmliZXYxLnZlcmNlbC5hcHAifQ",
+  "signature": "YOJ8g1b71EZbQQgjJKQvXPNEkVZQAVjaoY+UO+WzNcMoW/NABmF/gdw+Pd6HBfJYlsX3CRetaRWEjmuvEh0pQhs="
+},
     miniapp: {
       version: '1',
       name: APP_NAME ?? 'Neynar Starter Kit',
