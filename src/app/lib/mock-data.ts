@@ -173,7 +173,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
   {
     id: 'pool-1',
     pair: [tokenMap.get('eth')!, tokenMap.get('usdc')!],
-    protocolVersion: 'v2',
+    protocolVersion: 'v3',
     feeTier: 0.3,
     tvl: 11400000,
     tvlChange: 4.19,
@@ -195,7 +195,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
   {
     id: 'pool-2',
     pair: [tokenMap.get('eth')!, tokenMap.get('uni')!],
-    protocolVersion: 'v2',
+    protocolVersion: 'v3',
     feeTier: 0.3,
     tvl: 10400000,
     tvlChange: -2.3,
@@ -217,7 +217,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
    {
     id: 'pool-3',
     pair: [tokenMap.get('usdc')!, tokenMap.get('wbtc')!], // Mocking USSI as USDC
-    protocolVersion: 'v2',
+    protocolVersion: 'v3',
     feeTier: 0.3,
     tvl: 6000000,
     tvlChange: 0.1,
@@ -239,7 +239,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
   {
     id: 'pool-4',
     pair: [tokenMap.get('eth')!, tokenMap.get('wbtc')!],
-    protocolVersion: 'v4',
+    protocolVersion: 'v3',
     feeTier: 1,
     tvl: 3500000,
     tvlChange: 15.6,
