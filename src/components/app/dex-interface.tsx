@@ -56,11 +56,15 @@ function UniswapPoolsTable() {
                         <TableCell>
                              <Link href={`/pools/${pool.id}`} className="block w-full h-full">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex -space-x-2">
-                                        <Image src={pool.pair[0].icon.imageUrl} alt={pool.pair[0].name} width={24} height={24} className="rounded-full border-2 border-card" data-ai-hint={pool.pair[0].icon.imageHint}/>
-                                        <Image src={pool.pair[1].icon.imageUrl} alt={pool.pair[1].name} width={24} height={24} className="rounded-full border-2 border-card" data-ai-hint={pool.pair[1].icon.imageHint}/>
-                                    </div>
-                                    <span className="font-medium">{pool.pair[0].symbol}/{pool.pair[1].symbol}</span>
+                  <div className="flex -space-x-2">
+                    <Image src={pool.pair[0]?.icon?.imageUrl || '/assets/images/tokens/eth.png'} alt={pool.pair[0]?.name || 'Unknown'} width={24} height={24} className="rounded-full border-2 border-card" data-ai-hint={pool.pair[0]?.icon?.imageHint || ''}/>
+                    {pool.pair[1] ? (
+                      <Image src={pool.pair[1].icon.imageUrl} alt={pool.pair[1].name} width={24} height={24} className="rounded-full border-2 border-card" data-ai-hint={pool.pair[1].icon.imageHint}/>
+                    ) : (
+                      <Image src={'/assets/images/tokens/eth.png'} alt={'Unknown'} width={24} height={24} className="rounded-full border-2 border-card" />
+                    )}
+                  </div>
+                  <span className="font-medium">{pool.pair[0]?.symbol || 'Unknown'}/{pool.pair[1]?.symbol || 'Unknown'}</span>
                                 </div>
                             </Link>
                         </TableCell>

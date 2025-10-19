@@ -11,11 +11,10 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 const MOCK_EXCHANGE_RATES: Record<string, Record<string, number>> = {
-    'ETH': { 'USDC': 3000, 'AERO': 1000, 'WBTC': 0.05, 'UNI': 250 },
-    'USDC': { 'ETH': 1/3000, 'AERO': 0.33, 'WBTC': 1/60000, 'UNI': 1/12 },
-    'AERO': { 'ETH': 1/1000, 'USDC': 3, 'WBTC': 1/20000, 'UNI': 0.25 },
-    'WBTC': { 'ETH': 20, 'USDC': 60000, 'AERO': 20000, 'UNI': 5000 },
-    'UNI': { 'ETH': 1/250, 'USDC': 12, 'AERO': 4, 'WBTC': 1/5000 },
+    'ETH': { 'USDC': 3000, 'WBTC': 0.05, 'UNI': 250 },
+    'USDC': { 'ETH': 1/3000, 'WBTC': 1/60000, 'UNI': 1/12 },
+    'WBTC': { 'ETH': 20, 'USDC': 60000, 'UNI': 5000 },
+    'UNI': { 'ETH': 1/250, 'USDC': 12, 'WBTC': 1/5000 },
 };
 
 

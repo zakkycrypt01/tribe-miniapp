@@ -27,50 +27,32 @@
     {
       "id": "token-eth",
       "description": "Ethereum token icon",
-      "imageUrl": "https://picsum.photos/seed/eth/64/64",
+  "imageUrl": "/assets/images/tokens/eth.png",
       "imageHint": "ethereum logo"
     },
     {
       "id": "token-weth",
       "description": "Wrapped Ethereum token icon",
-      "imageUrl": "https://picsum.photos/seed/weth/64/64",
+  "imageUrl": "/assets/images/tokens/eth.png",
       "imageHint": "ethereum logo"
     },
     {
       "id": "token-usdc",
       "description": "USDC token icon",
-      "imageUrl": "https://picsum.photos/seed/usdc/64/64",
+  "imageUrl": "/assets/images/tokens/usdc.png",
       "imageHint": "usdc logo"
-    },
-    {
-      "id": "token-aero",
-      "description": "Aerodrome token icon",
-      "imageUrl": "https://picsum.photos/seed/aero/64/64",
-      "imageHint": "aerodrome logo"
     },
     {
       "id": "token-wbtc",
       "description": "Wrapped Bitcoin token icon",
-      "imageUrl": "https://picsum.photos/seed/wbtc/64/64",
+  "imageUrl": "/assets/images/tokens/wbtc.png",
       "imageHint": "bitcoin logo"
     },
     {
       "id": "token-uni",
       "description": "Uniswap token icon",
-      "imageUrl": "https://picsum.photos/seed/uni/64/64",
+    "imageUrl": "/assets/images/tokens/uni.png",
       "imageHint": "uniswap logo"
-    },
-    {
-      "id": "token-dino",
-      "description": "Dino token icon",
-      "imageUrl": "https://picsum.photos/seed/dino/64/64",
-      "imageHint": "dinosaur logo"
-    },
-    {
-      "id": "token-kta",
-      "description": "KTA token icon",
-      "imageUrl": "https://picsum.photos/seed/kta/64/64",
-      "imageHint": "abstract logo"
     }
   ]
 }

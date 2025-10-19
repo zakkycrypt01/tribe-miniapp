@@ -76,10 +76,14 @@ export function LpPositions({ positions }: { positions: LpPosition[] }) {
                       <TableCell>
                         <div className="flex items-center gap-3">
                            <div className="flex -space-x-2">
-                              <Image src={pos.pair[0].icon.imageUrl} alt={pos.pair[0].name} width={24} height={24} className="rounded-full border-2 border-card" data-ai-hint={pos.pair[0].icon.imageHint}/>
-                              <Image src={pos.pair[1].icon.imageUrl} alt={pos.pair[1].name} width={24} height={24} className="rounded-full border-2 border-card" data-ai-hint={pos.pair[1].icon.imageHint}/>
+                              <Image src={pos.pair[0]?.icon?.imageUrl || '/assets/images/tokens/eth.png'} alt={pos.pair[0]?.name || 'Unknown'} width={24} height={24} className="rounded-full border-2 border-card" data-ai-hint={pos.pair[0]?.icon?.imageHint || ''}/>
+                              {pos.pair[1] ? (
+                                <Image src={pos.pair[1].icon.imageUrl} alt={pos.pair[1].name} width={24} height={24} className="rounded-full border-2 border-card" data-ai-hint={pos.pair[1].icon.imageHint}/>
+                              ) : (
+                                <Image src={'/assets/images/tokens/eth.png'} alt={'Unknown'} width={24} height={24} className="rounded-full border-2 border-card" />
+                              )}
                             </div>
-                            <span className="font-medium">{pos.pair[0].symbol}/{pos.pair[1].symbol}</span>
+                            <span className="font-medium">{pos.pair[0]?.symbol || 'Unknown'}/{pos.pair[1]?.symbol || 'Unknown'}</span>
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{pos.protocol}</TableCell>

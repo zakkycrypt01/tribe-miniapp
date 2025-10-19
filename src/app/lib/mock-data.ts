@@ -7,11 +7,8 @@ const TOKENS: Token[] = [
   { id: 'eth', symbol: 'ETH', name: 'Ethereum', icon: imageMap.get('token-eth')! },
   { id: 'weth', symbol: 'WETH', name: 'Wrapped Ethereum', icon: imageMap.get('token-weth')! },
   { id: 'usdc', symbol: 'USDC', name: 'USD Coin', icon: imageMap.get('token-usdc')! },
-  { id: 'aero', symbol: 'AERO', name: 'Aerodrome', icon: imageMap.get('token-aero')! },
   { id: 'wbtc', symbol: 'WBTC', name: 'Wrapped BTC', icon: imageMap.get('token-wbtc')! },
   { id: 'uni', symbol: 'UNI', name: 'Uniswap', icon: imageMap.get('token-uni')! },
-  { id: 'dino', symbol: 'DINO', name: 'Dino', icon: imageMap.get('token-dino')! },
-  { id: 'kta', symbol: 'KTA', name: 'KTA', icon: imageMap.get('token-kta')! },
 ];
 const tokenMap = new Map(TOKENS.map(t => [t.id, t]));
 
@@ -43,7 +40,7 @@ const LEADERS: Leader[] = [
     name: 'juragantrqder88',
     avatar: imageMap.get('avatar-2')!,
     walletAddress: '0x1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ',
-    strategyDescription: 'Long-term holding strategy in a volatile AERO/ETH pair on Aerodrome. This is a high-risk, high-reward approach aimed at earning both fees and AERO emissions.',
+    strategyDescription: 'Long-term holding strategy in a volatile USDC/ETH pair on Aerodrome. This is a high-risk, high-reward approach aimed at earning both fees and USDC emissions.',
     apy30d: 300.87,
     totalFees: 1089.60,
     riskScore: 'High',
@@ -120,7 +117,7 @@ const LP_POSITIONS: { [leaderId: string]: LpPosition[] } = {
     {
       id: 'pos-2',
       protocol: 'Aerodrome',
-      pair: [tokenMap.get('eth')!, tokenMap.get('aero')!],
+      pair: [tokenMap.get('eth')!, tokenMap.get('uni')!],
       value: 500000,
       isTribeStrategy: false,
     },
@@ -164,7 +161,7 @@ const ACTION_HISTORY: { [leaderId: string]: ActionHistoryItem[] } = {
      {
       id: 'act-4',
       action: 'Remove Liquidity',
-      details: 'Removed 10% from AERO/ETH position',
+      details: 'Removed 10% from USDC/ETH position',
       timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
       gasCost: 0.005,
       txHash: '0x9876543210abcdef9876543210abcdef9876543210abcdef9876543210abcd',
@@ -175,7 +172,7 @@ const ACTION_HISTORY: { [leaderId: string]: ActionHistoryItem[] } = {
 const UNISWAP_POOLS: UniswapPool[] = [
   {
     id: 'pool-1',
-    pair: [tokenMap.get('eth')!, tokenMap.get('dino')!],
+    pair: [tokenMap.get('eth')!, tokenMap.get('usdc')!],
     protocolVersion: 'v2',
     feeTier: 0.3,
     tvl: 11400000,
@@ -188,7 +185,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
     poolAddress: '0x6a775a782a5a5a1f6f5d8e9e1f5d8e9e1f5d8e9e',
     poolBalances: [
       { token: tokenMap.get('eth')!, amount: 1500 },
-      { token: tokenMap.get('dino')!, amount: 3800000000 },
+      { token: tokenMap.get('usdc')!, amount: 3800000000 },
     ],
     historicalData: Array.from({ length: 24 }, (_, i) => ({
       time: `h${i}`,
@@ -197,7 +194,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
   },
   {
     id: 'pool-2',
-    pair: [tokenMap.get('eth')!, tokenMap.get('usdc')!],
+    pair: [tokenMap.get('eth')!, tokenMap.get('uni')!],
     protocolVersion: 'v2',
     feeTier: 0.3,
     tvl: 10400000,
@@ -219,7 +216,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
   },
    {
     id: 'pool-3',
-    pair: [tokenMap.get('usdc')!, tokenMap.get('usdc')!], // Mocking USSI as USDC
+    pair: [tokenMap.get('usdc')!, tokenMap.get('wbtc')!], // Mocking USSI as USDC
     protocolVersion: 'v2',
     feeTier: 0.3,
     tvl: 6000000,
@@ -231,7 +228,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
     fees1d: 0.18,
     poolAddress: '0x12345a782a5a5a1f6f5d8e9e1f5d8e9e1f5d8e9e',
     poolBalances: [
-      { token: tokenMap.get('usdc')!, amount: 3000000 },
+      { token: tokenMap.get('uni')!, amount: 3000000 },
       { token: tokenMap.get('usdc')!, amount: 3000000 },
     ],
     historicalData: Array.from({ length: 24 }, (_, i) => ({
@@ -241,7 +238,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
   },
   {
     id: 'pool-4',
-    pair: [tokenMap.get('eth')!, tokenMap.get('kta')!],
+    pair: [tokenMap.get('eth')!, tokenMap.get('wbtc')!],
     protocolVersion: 'v4',
     feeTier: 1,
     tvl: 3500000,
@@ -254,7 +251,7 @@ const UNISWAP_POOLS: UniswapPool[] = [
     poolAddress: '0xabcde6a782a5a5a1f6f5d8e9e1f5d8e9e1f5d8e9e',
     poolBalances: [
       { token: tokenMap.get('eth')!, amount: 500 },
-      { token: tokenMap.get('kta')!, amount: 1500000 },
+      { token: tokenMap.get('wbtc')!, amount: 1500000 },
     ],
     historicalData: Array.from({ length: 24 }, (_, i) => ({
       time: `h${i}`,
@@ -266,8 +263,8 @@ const uniswapPoolMap = new Map(UNISWAP_POOLS.map(p => [p.id, p]));
 
 const POOL_TRANSACTIONS: PoolTransaction[] = Array.from({ length: 20 }, (_, i) => {
     const isSwap = i % 3 !== 0;
-    const token1 = i % 2 === 0 ? tokenMap.get('eth')! : tokenMap.get('dino')!;
-    const token2 = token1.id === 'eth' ? tokenMap.get('dino')! : tokenMap.get('eth')!;
+    const token1 = i % 2 === 0 ? tokenMap.get('eth')! : tokenMap.get('usdc')!;
+    const token2 = token1.id === 'eth' ? tokenMap.get('usdc')! : tokenMap.get('eth')!;
     const amount1 = isSwap ? ((i + 1) * 0.8).toFixed(2) : ((i + 1) * 0.4).toFixed(2);
     const amount2 = isSwap ? (parseFloat(amount1) * (3000 + (i * 10))).toLocaleString(undefined, {maximumFractionDigits: 0}) : (parseFloat(amount1) * 3000).toLocaleString(undefined, {maximumFractionDigits: 0});
 
