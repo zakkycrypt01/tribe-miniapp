@@ -2,7 +2,8 @@ import { PlaceHolderImages, type ImagePlaceholder } from "@/lib/placeholder-imag
 import type { Token, LpPosition, Leader, ActionHistoryItem, UniswapPool, PoolTransaction } from './types';
 import { useReadContract, useAccount } from "wagmi";
 import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
-import { useQueries } from "@tanstack/react-query";
+import { useReadContracts } from "wagmi";
+import type { Abi } from "viem";
 
 
 const useLeaderRegistryGetAllLeaders = () => {
@@ -59,20 +60,31 @@ function mapContractLeaderToLeader(contractLeader: any): Leader {
 
 function useLeadersFromContract(): Leader[] {
   const { data: addresses } = useLeaderRegistryGetAllLeaders();
-  if (!Array.isArray(addresses) || addresses.length === 0) return [];
+  const safeAddresses = Array.isArray(addresses) ? addresses : [];
+  console.log('Leader addresses:', safeAddresses);
 
-  const queries = useQueries({
-    queries: addresses.map((addr: string) => ({
-      queryKey: ["leader", addr],
-      queryFn: async () => {
-        const { data } = useLeaderRegistryGetLeader(addr);
-        return data ? mapContractLeaderToLeader(data) : null;
-      },
-      enabled: !!addr,
-    })),
-  });
+  // Prepare contract read configs
+  const contracts = safeAddresses.map((address: string) => ({
+    address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
+    abi: ABIS.TribeLeaderRegistry as Abi,
+    functionName: "leaders",
+    args: [address],
+  }));
 
-  return queries.map(q => q.data).filter(Boolean) as Leader[];
+  // Always call useReadContracts, even if contracts is empty
+  const { data: leadersData } = useReadContracts({ contracts });
+
+  const leaders = (leadersData ?? [])
+    .map((result: any) => {
+      if (!result) return null;
+      if (typeof result === 'object' && 'result' in result) return result.result;
+      return result;
+    })
+    .filter(Boolean)
+    .map(mapContractLeaderToLeader);
+
+  console.log('Fetched leader details:', leaders);
+  return leaders;
 }
 
 const LP_POSITIONS: { [leaderId: string]: LpPosition[] } = {
