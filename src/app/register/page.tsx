@@ -48,7 +48,7 @@ export default function RegisterPage() {
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!isConnected) {
       alert("Please connect your wallet.");
       return;
@@ -58,15 +58,46 @@ export default function RegisterPage() {
       setShowNetworkDialog(true);
       return;
     }
-    writeContract({
-      address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
-      abi: ABIS.TribeLeaderRegistry,
-      functionName: 'registerAsLeader',
-      args: [strategyName, strategyDescription, Number(performanceFee)],
-      chainId: targetChain.id,
-    });
+
     setShowConfirmDialog(false);
     setStep('confirm');
+
+    try {
+      // Prepare dummy historical positions (5 positions)
+      const now = Math.floor(Date.now() / 1000);
+      const positions = Array.from({ length: 5 }, (_, i) => ({
+        token0: "0x0000000000000000000000000000000000000001",
+        token1: "0x0000000000000000000000000000000000000002",
+        openTime: now - 864000 - i * 86400, // 10 days ago minus i days
+        closeTime: now - 777600 - i * 86400, // 9 days ago minus i days
+        principalUsd: "1000000000000000000000", // 1000e18
+        netPnLUsd: "100000000000000000000", // 100e18
+        isProfitable: true,
+      }));
+
+      // First, submit historical positions
+      writeContract({
+        address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
+        abi: ABIS.TribeLeaderRegistry,
+        functionName: 'submitHistoricalPositions',
+        args: [positions],
+        chainId: targetChain.id,
+      }, {
+        onSuccess: (hash) => {
+          setTxHash(hash);
+          // Now register as leader
+          writeContract({
+            address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
+            abi: ABIS.TribeLeaderRegistry,
+            functionName: 'registerAsLeader',
+            args: [strategyName, strategyDescription, Number(performanceFee)],
+            chainId: targetChain.id,
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+    }
   };
 
   return (
