@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HelpCircle, FileText } from 'lucide-react';
+import { useAccount, useBalance } from 'wagmi';
 import { useRole } from "@/context/RoleContext";
 import { LeaderTerminal } from "@/components/app/leader-terminal";
 import { getTokens } from "../lib/mock-data";
@@ -21,36 +22,44 @@ function StatCard({ title, value, subValue }: { title: string, value: string, su
   )
 }
 
+
 function FollowerPortfolioPage() {
+    const { address } = useAccount();
+        const { data: balanceData, isLoading } = useBalance({
+            address,
+        });
+
+    const equity = address && balanceData ? parseFloat(balanceData.formatted).toFixed(4) : '0.00';
+
     return (
         <div className="p-4 md:p-6 space-y-6">
-        <Card>
-            <CardContent className="p-4 grid grid-cols-2 gap-4">
-                <StatCard title="Total Equity (USDT)" value="0.00" />
-                <StatCard title="Cumulative ROI" value="0.00" subValue="(0.00%)" />
-            </CardContent>
-        </Card>
+            <Card>
+                <CardContent className="p-4 grid grid-cols-2 gap-4">
+                    <StatCard title="Total Equity (ETH)" value={isLoading ? '...' : equity} />
+                    <StatCard title="Cumulative ROI" value="0.00" subValue="(0.00%)" />
+                </CardContent>
+            </Card>
 
-        <Tabs defaultValue="current">
-            <TabsList className="grid w-full grid-cols-2 bg-transparent p-0 border-b rounded-none">
-                <TabsTrigger value="current" className="data-[state=active]:shadow-none data-[state=active]:border-b-2 border-b-primary rounded-none">Current Holdings</TabsTrigger>
-                <TabsTrigger value="past" className="data-[state=active]:shadow-none data-[state=active]:border-b-2 border-b-primary rounded-none">Past Holdings</TabsTrigger>
-            </TabsList>
-            <TabsContent value="current" className="pt-6">
-                <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
-                    <FileText className="size-16 text-muted-foreground/50" />
-                    <p className="text-muted-foreground">No Records</p>
-                </div>
-            </TabsContent>
-            <TabsContent value="past" className="pt-6">
-                <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
-                    <FileText className="size-16 text-muted-foreground/50" />
-                    <p className="text-muted-foreground">No Records</p>
-                </div>
-            </TabsContent>
-        </Tabs>
-      </div>
-    )
+            <Tabs defaultValue="current">
+                <TabsList className="grid w-full grid-cols-2 bg-transparent p-0 border-b rounded-none">
+                    <TabsTrigger value="current" className="data-[state=active]:shadow-none data-[state=active]:border-b-2 border-b-primary rounded-none">Current Holdings</TabsTrigger>
+                    <TabsTrigger value="past" className="data-[state=active]:shadow-none data-[state=active]:border-b-2 border-b-primary rounded-none">Past Holdings</TabsTrigger>
+                </TabsList>
+                <TabsContent value="current" className="pt-6">
+                    <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
+                        <FileText className="size-16 text-muted-foreground/50" />
+                        <p className="text-muted-foreground">No Records</p>
+                    </div>
+                </TabsContent>
+                <TabsContent value="past" className="pt-6">
+                    <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
+                        <FileText className="size-16 text-muted-foreground/50" />
+                        <p className="text-muted-foreground">No Records</p>
+                    </div>
+                </TabsContent>
+            </Tabs>
+        </div>
+    );
 }
 
 
