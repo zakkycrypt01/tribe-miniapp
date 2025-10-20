@@ -11,7 +11,7 @@ import { CheckCircle, Loader, XCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { base } from "wagmi/chains";
+import { baseSepolia } from "wagmi/chains";
 
 type Step = 'connect' | 'analyze' | 'qualify' | 'fail' | 'define' | 'confirm';
 
@@ -28,7 +28,7 @@ export default function RegisterPage() {
   const { writeContract, isPending: isRegistering, error: registerError, reset: resetRegister } = useWriteContract();
   const { isLoading: isTxPending, isSuccess: isTxConfirmed } = useWaitForTransactionReceipt({
     hash: txHash,
-    chainId: base.id,
+    chainId: baseSepolia.id,
   });
 
   const handleAnalyze = () => {
@@ -58,7 +58,7 @@ export default function RegisterPage() {
       abi: ABIS.TribeLeaderRegistry,
       functionName: 'registerAsLeader',
       args: [strategyName, strategyDescription, Number(performanceFee)],
-      chainId: base.id,
+      chainId: baseSepolia.id,
     });
     setShowConfirmDialog(false);
     setStep('confirm');
