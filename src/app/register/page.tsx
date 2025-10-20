@@ -9,6 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle, Loader, XCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { base } from "wagmi/chains";
 
 type Step = 'connect' | 'analyze' | 'qualify' | 'fail' | 'define' | 'confirm';
 
@@ -18,6 +21,15 @@ export default function RegisterPage() {
   const [strategyDescription, setStrategyDescription] = useState('');
   const [performanceFee, setPerformanceFee] = useState('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  // Wagmi hooks for contract write
+  const { address, isConnected, chainId } = useAccount();
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
+  const { writeContract, isPending: isRegistering, error: registerError, reset: resetRegister } = useWriteContract();
+  const { isLoading: isTxPending, isSuccess: isTxConfirmed } = useWaitForTransactionReceipt({
+    hash: txHash,
+    chainId: base.id,
+  });
 
   const handleAnalyze = () => {
     setStep('analyze');
@@ -32,21 +44,29 @@ export default function RegisterPage() {
   const handleDefineSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (strategyName && strategyDescription && performanceFee) {
-        setShowConfirmDialog(true);
+      setShowConfirmDialog(true);
     }
   };
 
   const handleConfirm = () => {
-    console.log('Strategy Submitted:', { strategyName, strategyDescription, performanceFee });
-    // Here you would typically submit to a backend
+    if (!isConnected) {
+      alert("Please connect your wallet.");
+      return;
+    }
+    writeContract({
+      address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
+      abi: ABIS.TribeLeaderRegistry,
+      functionName: 'registerAsLeader',
+      args: [strategyName, strategyDescription, Number(performanceFee)],
+      chainId: base.id,
+    });
     setShowConfirmDialog(false);
-    // Maybe redirect or show a final success message
-    alert("Congratulations! You are now a Lead Trader.");
+    setStep('confirm');
   };
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-6">
-      <Card className="w-full max-w-md">
+  <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Become a Lead Trader</CardTitle>
           <CardDescription>
@@ -58,6 +78,31 @@ export default function RegisterPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Show registration tx status if in confirm step */}
+          {step === 'confirm' && (
+            <div className="flex flex-col items-center space-y-4 text-center">
+              {isRegistering || isTxPending ? (
+                <>
+                  <Loader className="h-12 w-12 animate-spin text-primary" />
+                  <p className="font-semibold">Registering on-chain...</p>
+                  <p className="text-sm text-muted-foreground">Please confirm the transaction in your wallet.</p>
+                </>
+              ) : isTxConfirmed ? (
+                <>
+                  <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+                  <h3 className="text-xl font-bold">Congratulations!</h3>
+                  <p className="text-muted-foreground">You are now a Lead Trader.</p>
+                </>
+              ) : registerError ? (
+                <>
+                  <XCircle className="h-16 w-16 text-destructive mx-auto" />
+                  <h3 className="text-xl font-bold">Registration Failed</h3>
+                  <p className="text-muted-foreground">{registerError.message}</p>
+                  <Button onClick={() => { resetRegister(); setStep('define'); setTxHash(undefined); }} size="lg" className="w-full" variant="secondary">Try Again</Button>
+                </>
+              ) : null}
+            </div>
+          )}
           {step === 'connect' && (
             <div className="flex flex-col items-center space-y-4">
                 <p className="text-sm text-center text-muted-foreground">We'll analyze your wallet for a verifiable track record of at least 80% net profitable LP positions, accounting for Impermanent Loss and gas costs.</p>
@@ -138,7 +183,7 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+  <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Your Strategy</AlertDialogTitle>
@@ -166,7 +211,7 @@ export default function RegisterPage() {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirm}>Confirm & Register</AlertDialogAction>
+            <AlertDialogAction onClick={handleConfirm} disabled={isRegistering || isTxPending}>Confirm & Register</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
