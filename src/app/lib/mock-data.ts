@@ -1,5 +1,25 @@
 import { PlaceHolderImages, type ImagePlaceholder } from "@/lib/placeholder-images";
 import type { Token, LpPosition, Leader, ActionHistoryItem, UniswapPool, PoolTransaction } from './types';
+import { useReadContract, useAccount } from "wagmi";
+import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
+import { useQueries } from "@tanstack/react-query";
+
+
+const useLeaderRegistryGetAllLeaders = () => {
+  return useReadContract({
+    address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
+    abi: ABIS.TribeLeaderRegistry,
+    functionName: "getAllLeaders",
+  });
+}
+const useLeaderRegistryGetLeader = (address: string) => {
+  return useReadContract({
+    address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
+    abi: ABIS.TribeLeaderRegistry,
+    functionName: "leaders",
+    args: [address],
+  });
+}
 
 const imageMap = new Map(PlaceHolderImages.map(img => [img.id, img]));
 
@@ -12,97 +32,48 @@ const TOKENS: Token[] = [
 ];
 const tokenMap = new Map(TOKENS.map(t => [t.id, t]));
 
-const LEADERS: Leader[] = [
-  {
-    id: 'leader-1',
-    name: 'Progressive trading TOP ...',
-    avatar: imageMap.get('avatar-1')!,
-    walletAddress: '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
-    strategyDescription: 'Focus on high-volume stable pairs with active range management on Uniswap V3 to maximize fee collection while minimizing impermanent loss. Ideal for capturing volatility in stable markets.',
-    apy30d: 509.16,
-    totalFees: 5917.86,
-    riskScore: 'Low',
-    followers: 1337,
-    tvl: 2500000,
-    maxDrawdown: 0.53,
-    historicalApy: Array.from({ length: 30 }, (_, i) => ({
-      date: new Date(Date.now() - (30 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      apy: 20 + Math.sin(i / 3) * 5 + Math.random() * 3,
+
+
+function mapContractLeaderToLeader(contractLeader: any): Leader {
+  const defaultAvatar = imageMap.get('avatar-1')!;
+  return {
+    id: contractLeader.wallet || '',
+    name: contractLeader.strategyName || '',
+    avatar: defaultAvatar,
+    walletAddress: contractLeader.wallet || '',
+    strategyDescription: contractLeader.description || '',
+    apy30d: 0,
+    totalFees: 0,
+    riskScore: 'Low', 
+    followers: Number(contractLeader.totalFollowers) || 0,
+    tvl: Number(contractLeader.totalTvl) || 0,
+    maxDrawdown: 0,
+    historicalApy: [],
+    followersPnl: 0,
+    winRate: 0,
+    sharpeRatio: 0,
+    followerCount: Number(contractLeader.totalFollowers) || 0,
+    maxFollowers: 0,
+  };
+}
+
+function useLeadersFromContract(): Leader[] {
+  const { data: addresses } = useLeaderRegistryGetAllLeaders();
+  if (!Array.isArray(addresses) || addresses.length === 0) return [];
+
+  const queries = useQueries({
+    queries: addresses.map((addr: string) => ({
+      queryKey: ["leader", addr],
+      queryFn: async () => {
+        const { data } = useLeaderRegistryGetLeader(addr);
+        return data ? mapContractLeaderToLeader(data) : null;
+      },
+      enabled: !!addr,
     })),
-    followersPnl: 58541.62,
-    winRate: 74.86,
-    sharpeRatio: 25.16,
-    followerCount: 103,
-    maxFollowers: 300,
-  },
-  {
-    id: 'leader-2',
-    name: 'juragantrqder88',
-    avatar: imageMap.get('avatar-2')!,
-    walletAddress: '0x1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ',
-    strategyDescription: 'Long-term holding strategy in a volatile USDC/ETH pair on Aerodrome. This is a high-risk, high-reward approach aimed at earning both fees and USDC emissions.',
-    apy30d: 300.87,
-    totalFees: 1089.60,
-    riskScore: 'High',
-    followers: 420,
-    tvl: 850000,
-    maxDrawdown: 2.68,
-    historicalApy: Array.from({ length: 30 }, (_, i) => ({
-      date: new Date(Date.now() - (30 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      apy: 60 + Math.cos(i / 5) * 20 + Math.random() * 10,
-    })),
-    followersPnl: -1548.13,
-    winRate: 62.23,
-    sharpeRatio: 28.88,
-    followerCount: 299,
-    maxFollowers: 300,
-  },
-  {
-    id: 'leader-3',
-    name: 'Quantum X',
-    avatar: imageMap.get('avatar-3')!,
-    walletAddress: '0x994a1B2A1E6971958277258004944894C4ade7d6',
-    strategyDescription: 'Balanced portfolio leveraging both Uniswap V3 (WBTC/ETH) and Aerodrome (ETH/USDC) to diversify risk and capture fees from different market segments. Moderate risk.',
-    apy30d: 282.42,
-    totalFees: 3420.07,
-    riskScore: 'Medium',
-    followers: 859,
-    tvl: 1200000,
-    maxDrawdown: 0.48,
-    historicalApy: Array.from({ length: 30 }, (_, i) => ({
-      date: new Date(Date.now() - (30 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      apy: 40 + Math.sin(i / 2) * 10 + Math.random() * 5,
-    })),
-    followersPnl: 4269.78,
-    winRate: 83.60,
-    sharpeRatio: 19.5,
-    followerCount: 5,
-    maxFollowers: 300,
-  },
-    {
-    id: 'leader-4',
-    name: 'Yield Farmer',
-    avatar: imageMap.get('avatar-4')!,
-    walletAddress: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
-    strategyDescription: 'This strategy focuses on farming rewards from the UNI/ETH pool on Uniswap, combined with occasional swaps to rebalance. It is a medium risk strategy for those bullish on UNI.',
-    apy30d: 33.8,
-    totalFees: 6730.22,
-    riskScore: 'Medium',
-    followers: 672,
-    tvl: 950000,
-    maxDrawdown: 22.1,
-    historicalApy: Array.from({ length: 30 }, (_, i) => ({
-      date: new Date(Date.now() - (30 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      apy: 30 + Math.cos(i / 4) * 8 + Math.random() * 4,
-    })),
-    followersPnl: 12034.21,
-    winRate: 68.5,
-    sharpeRatio: 12.3,
-    followerCount: 250,
-    maxFollowers: 300,
-  },
-];
-const leaderMap = new Map(LEADERS.map(l => [l.id, l]));
+  });
+
+  return queries.map(q => q.data).filter(Boolean) as Leader[];
+}
 
 const LP_POSITIONS: { [leaderId: string]: LpPosition[] } = {
   'leader-1': [
@@ -282,12 +253,18 @@ const POOL_TRANSACTIONS: PoolTransaction[] = Array.from({ length: 20 }, (_, i) =
 });
 
 
+
+// Example: getLeaders expects an array of addresses
+// You may want to pass the addresses you want to fetch here
 export function getLeaders() {
-  return LEADERS;
+  return useLeadersFromContract();
 }
 
-export function getLeaderData(id: string) {
-  return leaderMap.get(id);
+
+// Example: getLeaderData expects a wallet address
+export function getLeaderData(address: string) {
+  const { data } = useLeaderRegistryGetLeader(address);
+  return data ? mapContractLeaderToLeader(data) : null;
 }
 
 export function getLpPositions(leaderId: string) {

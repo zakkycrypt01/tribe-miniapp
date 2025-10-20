@@ -17,7 +17,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useRole } from "@/context/RoleContext";
 import PortfolioPage from "../portfolio/page";
+import { useReadContract, useAccount } from "wagmi";
+import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
 
+export function useLeaderRegistryGetLeader(address: string) {
+  return useReadContract({
+    address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
+    abi: ABIS.TribeLeaderRegistry,
+    functionName: "getLeader",
+    args: [address],
+  });
+}
 
 type StatCardProps = {
     icon?: React.ElementType;
@@ -51,6 +61,13 @@ function LeaderProfileView() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [strategyName, setStrategyName] = useState(leader?.name || '');
   const [strategyDescription, setStrategyDescription] = useState(leader?.strategyDescription || '');
+
+  const { address } = useAccount();
+  const {
+    data: leaderOnChain,
+    isLoading,
+    error,
+  } = useLeaderRegistryGetLeader(address ? `0x${address}` : '');
 
   if (!leader) {
     notFound();

@@ -1,12 +1,7 @@
 "use client";
 import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { config as wagmiConfig } from "@/components/providers/WagmiProvider";
 import { useAccount } from "wagmi";
-
-
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
 import { useReadContract } from "wagmi";
 
 type Role = 'follower' | 'leader';
