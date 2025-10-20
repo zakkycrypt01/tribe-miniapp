@@ -99,21 +99,21 @@ function FollowerPortfolioPage() {
                     <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
                         {address && hasBalance ? (
                             <div className="w-full space-y-4">
-                                <div className="rounded-lg border">
-                                    <div className="grid grid-cols-4 gap-4 p-4 font-semibold border-b">
-                                        <div>Token</div>
+                                <div className="rounded-lg border border-[#2c3552] bg-[#0a1732]">
+                                    <div className="grid grid-cols-3 gap-0 px-6 py-3 font-semibold border-b border-[#2c3552] text-white">
+                                        <div className="flex items-center gap-2">Token</div>
                                         <div className="text-right">Balance</div>
                                         <div className="text-right">USD Value</div>
                                     </div>
-                                    <div className="p-4">
-                                        {balances.map(b => b.data && parseFloat(b.data.formatted) > 0 && (
-                                            <div key={b.token.symbol} className="grid grid-cols-4 gap-4 items-center">
+                                    <div className="px-6 py-2">
+                                        {balances.map(b => b.data && (
+                                            <div key={b.token.symbol} className="grid grid-cols-3 gap-0 items-center py-2 border-b border-[#1a2240] last:border-b-0">
                                                 <div className="flex items-center gap-2 font-medium">
                                                     <img src={b.token.icon.imageUrl} alt={b.token.symbol} width={24} height={24} className="rounded-full" />
-                                                    {b.token.symbol}
+                                                    <span className="text-base text-white">{b.token.symbol}</span>
                                                 </div>
-                                                <div className="text-right">{parseFloat(b.data.formatted).toFixed(4)}</div>
-                                                <div className="text-right">${(parseFloat(b.data.formatted) * (prices[b.token.symbol] || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                                                <div className="text-right text-base text-white">{parseFloat(b.data.formatted).toFixed(4)}</div>
+                                                <div className="text-right text-base text-white">${(parseFloat(b.data.formatted) * (prices[b.token.symbol] || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                                             </div>
                                         ))}
                                     </div>
