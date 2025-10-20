@@ -63,7 +63,6 @@ function useLeadersFromContract(): Leader[] {
   const safeAddresses = Array.isArray(addresses) ? addresses : [];
   console.log('Leader addresses:', safeAddresses);
 
-  // Prepare contract read configs
   const contracts = safeAddresses.map((address: string) => ({
     address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
     abi: ABIS.TribeLeaderRegistry as Abi,
@@ -71,7 +70,6 @@ function useLeadersFromContract(): Leader[] {
     args: [address],
   }));
 
-  // Always call useReadContracts, even if contracts is empty
   const { data: leadersData } = useReadContracts({ contracts });
 
   const leaders = (leadersData ?? [])
