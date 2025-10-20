@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -11,7 +10,7 @@ import { CheckCircle, Loader, XCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { baseSepolia } from "wagmi/chains";
+import { config as wagmiConfig } from "@/components/providers/WagmiProvider";
 
 type Step = 'connect' | 'analyze' | 'qualify' | 'fail' | 'define' | 'confirm';
 
@@ -23,13 +22,13 @@ export default function RegisterPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showNetworkDialog, setShowNetworkDialog] = useState(false);
 
-  // Wagmi hooks for contract write
   const { address, isConnected, chainId } = useAccount();
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
   const { writeContract, isPending: isRegistering, error: registerError, reset: resetRegister } = useWriteContract();
+  const targetChain = wagmiConfig.chains[0];
   const { isLoading: isTxPending, isSuccess: isTxConfirmed } = useWaitForTransactionReceipt({
     hash: txHash,
-    chainId: baseSepolia.id,
+    chainId: targetChain.id,
   });
 
   const handleAnalyze = () => {
@@ -54,7 +53,7 @@ export default function RegisterPage() {
       alert("Please connect your wallet.");
       return;
     }
-    if (chainId !== baseSepolia.id) {
+    if (chainId !== targetChain.id) {
       setShowConfirmDialog(false);
       setShowNetworkDialog(true);
       return;
@@ -64,7 +63,7 @@ export default function RegisterPage() {
       abi: ABIS.TribeLeaderRegistry,
       functionName: 'registerAsLeader',
       args: [strategyName, strategyDescription, Number(performanceFee)],
-      chainId: baseSepolia.id,
+      chainId: targetChain.id,
     });
     setShowConfirmDialog(false);
     setStep('confirm');
@@ -226,10 +225,10 @@ export default function RegisterPage() {
       <AlertDialog open={showNetworkDialog} onOpenChange={setShowNetworkDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Switch to Base Sepolia</AlertDialogTitle>
+            <AlertDialogTitle>Switch Network</AlertDialogTitle>
             <AlertDialogDescription>
               Your wallet is connected to the wrong network.<br />
-              Please switch to <b>Base Sepolia</b> (Chain ID: 84532) in your wallet and try again.
+              Please switch to <b>{targetChain.name}</b> (Chain ID: {targetChain.id}) in your wallet and try again.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
