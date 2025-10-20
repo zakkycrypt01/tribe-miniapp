@@ -16,7 +16,30 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
+import { useAccount } from "wagmi";
+import { writeContract, waitForTransactionReceipt } from "wagmi/actions";
+import { erc20Abi, parseUnits } from "viem";
+import { config as wagmiConfig } from "@/components/providers/WagmiProvider";
 
+
+// Temporary token address/decimals map for Base Sepolia
+// Note: ETH is treated as WETH
+const TOKEN_ADDRESSES: Record<string, `0x${string}` | undefined> = {
+    ETH: '0x4200000000000000000000000000000000000006',
+    WETH: '0x4200000000000000000000000000000000000006',
+    USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    WBTC: '0xcbB7C0006F23900c38EB856149F799620fcb8A4a',
+    UNI: '0xB62b54F9b13F3bE72A65117a705c930e42563ab4',
+};
+
+const TOKEN_DECIMALS: Record<string, number> = {
+    ETH: 18,
+    WETH: 18,
+    USDC: 6,
+    WBTC: 8,
+    UNI: 18,
+};
 
 const TokenSelector = ({ tokens, value, onChange }: { tokens: Token[], value?: string, onChange: (value: string) => void }) => {
     const selectedToken = tokens.find(t => t.symbol === value);
@@ -96,14 +119,91 @@ export default function NewPositionPage() {
     const token1 = tokens.find(t => t.symbol === token1Symbol)!;
     const token2 = tokens.find(t => t.symbol === token2Symbol)!;
 
-    const handleCreate = () => {
-        setCreationStep('approving');
-        setTimeout(() => {
+    const { address } = useAccount();
+
+    const createUniswapV3Position = async () => {
+        if (!address) throw new Error('Wallet not connected');
+        // Resolve token addresses and decimals
+        const symA = token1Symbol;
+        const symB = token2Symbol;
+        const addrA = TOKEN_ADDRESSES[symA] as `0x${string}` | undefined;
+        const addrB = TOKEN_ADDRESSES[symB] as `0x${string}` | undefined;
+        if (!addrA || !addrB) throw new Error('Unsupported token');
+        const decA = TOKEN_DECIMALS[symA] ?? 18;
+        const decB = TOKEN_DECIMALS[symB] ?? 18;
+
+        // Parse user amounts
+        const amtA = parseUnits((amount1 || '0') as `${number}` as unknown as string, decA);
+        const amtB = parseUnits((amount2 || '0') as `${number}` as unknown as string, decB);
+        if (amtA === 0n || amtB === 0n) throw new Error('Amounts must be greater than zero');
+
+        // Sort tokens to token0/token1 by address
+        const token0 = addrA.toLowerCase() < addrB.toLowerCase() ? addrA : addrB;
+        const token1 = token0 === addrA ? addrB : addrA;
+        const amount0Desired = token0 === addrA ? amtA : amtB;
+        const amount1Desired = token0 === addrA ? amtB : amtA;
+
+        // Fee tier fixed to 0.3% for now
+        const fee: 3000 = 3000;
+        // Full-range ticks for simplicity (custom range pending tick math)
+        const tickLower: -887220 = -887220;
+        const tickUpper: 887220 = 887220;
+
+        // 1) Approve adapter to spend tokens
+        // Approve token0
+        const approve0Hash = await writeContract(wagmiConfig, {
+            abi: erc20Abi,
+            address: token0,
+            functionName: 'approve',
+            args: [CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`, amount0Desired],
+            account: address,
+        });
+        await waitForTransactionReceipt(wagmiConfig, { hash: approve0Hash });
+
+        // Approve token1
+        const approve1Hash = await writeContract(wagmiConfig, {
+            abi: erc20Abi,
+            address: token1,
+            functionName: 'approve',
+            args: [CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`, amount1Desired],
+            account: address,
+        });
+        await waitForTransactionReceipt(wagmiConfig, { hash: approve1Hash });
+
+        // 2) Call adapter mintPosition
+        const txHash = await writeContract(wagmiConfig, {
+            abi: ABIS.TribeUniswapV3Adapter,
+            address: CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`,
+            functionName: 'mintPosition',
+            args: [
+                token0,
+                token1,
+                fee,
+                tickLower,
+                tickUpper,
+                amount0Desired,
+                amount1Desired,
+                0n,
+                0n,
+                address,
+            ],
+            account: address,
+        });
+        const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash });
+        return receipt;
+    };
+
+    const handleCreate = async () => {
+        try {
+            setCreationStep('approving');
+            // Approvals happen inside createUniswapV3Position before mint
             setCreationStep('confirming');
-             setTimeout(() => {
-                setCreationStep('complete');
-            }, 3000);
-        }, 3000);
+            await createUniswapV3Position();
+            setCreationStep('complete');
+        } catch (e) {
+            console.error(e);
+            setCreationStep('review');
+        }
     }
     
     const resetDialog = () => {
