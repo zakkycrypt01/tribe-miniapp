@@ -46,9 +46,8 @@ function FollowerPortfolioPage() {
                     <TabsTrigger value="past" className="data-[state=active]:shadow-none data-[state=active]:border-b-2 border-b-primary rounded-none">Past Holdings</TabsTrigger>
                 </TabsList>
                 <TabsContent value="current" className="pt-6">
-                    {address && balanceData && parseFloat(balanceData.formatted) > 0 ? (
-                        <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
-                            <FileText className="size-16 text-muted-foreground/50" />
+                    <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
+                        {address && balanceData && parseFloat(balanceData.formatted) > 0 ? (
                             <div className="w-full space-y-4">
                                 <div className="rounded-lg border">
                                     <div className="grid grid-cols-3 gap-4 p-4 font-semibold border-b">
@@ -64,8 +63,13 @@ function FollowerPortfolioPage() {
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ) : null}
+                        ) : (
+                            <>
+                                <FileText className="size-16 text-muted-foreground/50" />
+                                <p className="text-muted-foreground">No Records</p>
+                            </>
+                        )}
+                    </div>
                 </TabsContent>
                 <TabsContent value="past" className="pt-6">
                     <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
