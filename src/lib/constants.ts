@@ -123,7 +123,7 @@ export const ANALYTICS_ENABLED: boolean = false;
  * Supported chains: eip155:1, eip155:137, eip155:42161, eip155:10, eip155:8453,
  * solana:mainnet, solana:devnet
  */
-export const APP_REQUIRED_CHAINS: string[] = [];
+export const APP_REQUIRED_CHAINS: string[] = ['eip155:84532'];
 
 /**
  * Return URL for the mini app.
