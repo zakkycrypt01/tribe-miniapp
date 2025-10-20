@@ -1,9 +1,11 @@
 "use client";
 import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { config as wagmiConfig } from "@/components/providers/WagmiProvider";
+import { useAccount } from "wagmi";
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 import { useReadContract } from "wagmi";
 
@@ -29,16 +31,26 @@ export function useIsRegisteredLeader(address?: `0x${string}` | undefined) {
 
 interface RoleContextType {
   role: Role;
-  setRole: (role: Role) => void;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
+
+
+
 export function RoleProvider({ children }: { children: ReactNode }) {
+  const { address } = useAccount();
+  const { isRegistered, isLoading } = useIsRegisteredLeader(address);
   const [role, setRole] = useState<Role>('follower');
 
+  useEffect(() => {
+    if (!isLoading) {
+      setRole(isRegistered ? 'leader' : 'follower');
+    }
+  }, [isRegistered, isLoading]);
+
   return (
-    <RoleContext.Provider value={{ role, setRole }}>
+    <RoleContext.Provider value={{ role }}>
       {children}
     </RoleContext.Provider>
   );
