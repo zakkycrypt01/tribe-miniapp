@@ -21,6 +21,7 @@ export default function RegisterPage() {
   const [strategyDescription, setStrategyDescription] = useState('');
   const [performanceFee, setPerformanceFee] = useState('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showNetworkDialog, setShowNetworkDialog] = useState(false);
 
   // Wagmi hooks for contract write
   const { address, isConnected, chainId } = useAccount();
@@ -53,6 +54,11 @@ export default function RegisterPage() {
       alert("Please connect your wallet.");
       return;
     }
+    if (chainId !== baseSepolia.id) {
+      setShowConfirmDialog(false);
+      setShowNetworkDialog(true);
+      return;
+    }
     writeContract({
       address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
       abi: ABIS.TribeLeaderRegistry,
@@ -66,7 +72,7 @@ export default function RegisterPage() {
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-6">
-  <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Become a Lead Trader</CardTitle>
           <CardDescription>
@@ -183,7 +189,7 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
 
-  <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Your Strategy</AlertDialogTitle>
@@ -212,6 +218,22 @@ export default function RegisterPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirm} disabled={isRegistering || isTxPending}>Confirm & Register</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Network mismatch dialog */}
+      <AlertDialog open={showNetworkDialog} onOpenChange={setShowNetworkDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Switch to Base Sepolia</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your wallet is connected to the wrong network.<br />
+              Please switch to <b>Base Sepolia</b> (Chain ID: 84532) in your wallet and try again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowNetworkDialog(false)}>OK</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
