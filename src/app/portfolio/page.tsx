@@ -58,7 +58,6 @@ function FollowerPortfolioPage() {
                                         <div className="grid grid-cols-3 gap-4 items-center">
                                             <div className="font-medium">ETH</div>
                                             <div className="text-right">{parseFloat(balanceData.formatted).toFixed(4)}</div>
-                                            <div className="text-right">{parseFloat(balanceData.formatted).toFixed(4)}</div>
                                         </div>
                                     </div>
                                 </div>
