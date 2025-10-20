@@ -6,8 +6,8 @@ import { ArrowLeft, User, ChevronDown } from "lucide-react";
 import { Logo } from "./logo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRole } from "@/context/RoleContext";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useRole, useIsRegisteredLeader } from "@/context/RoleContext";
+import { useAccount } from "wagmi";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -42,12 +42,15 @@ const HeaderTitle = () => {
 
 
 export function AppHeader() {
-  const { role, setRole } = useRole();
-  const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+    const { address } = useAccount();
+    const { isRegistered, isLoading } = useIsRegisteredLeader(address);
+    const role = isRegistered ? 'leader' : 'follower';
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
 
   return (
@@ -65,20 +68,9 @@ export function AppHeader() {
         </div>
         {isClient ? (
         <div className="flex items-center gap-2">
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center gap-1">
-                        <span className="capitalize">{role}</span>
-                        <ChevronDown className="size-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                    <DropdownMenuRadioGroup value={role} onValueChange={(value) => setRole(value as 'follower' | 'leader')}>
-                        <DropdownMenuRadioItem value="follower">Follower</DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="leader">Lead Trader</DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-            </DropdownMenu>
+            <Button variant="ghost" className="flex items-center gap-1" disabled={isLoading}>
+                <span className="capitalize">{isLoading ? 'Loading...' : role}</span>
+            </Button>
 
             {role === 'leader' && (
               <Button variant="ghost" size="icon" asChild>
