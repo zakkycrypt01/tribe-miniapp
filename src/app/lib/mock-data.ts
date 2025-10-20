@@ -3,7 +3,10 @@ import type { Token, LpPosition, Leader, ActionHistoryItem, UniswapPool, PoolTra
 import { useReadContract, useAccount } from "wagmi";
 import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
 import { useReadContracts } from "wagmi";
-import type { Abi } from "viem";
+import type {Abi} from "viem";
+import { Avatar, Name, getName } from '@coinbase/onchainkit/identity';
+import React, { use } from "react";
+import { truncateAddress } from "@/lib/truncateAddress";
 
 
 const useLeaderRegistryGetAllLeaders = () => {
@@ -34,6 +37,24 @@ const TOKENS: Token[] = [
 const tokenMap = new Map(TOKENS.map(t => [t.id, t]));
 
 
+const getBaseName = async (walletAddress: string): Promise<string> => {
+  try {
+    const name = await getName({
+      address: walletAddress as `0x${string}`,
+    });
+    console.log('Fetched name:', name);
+    return name ?? walletAddress;
+  } catch (error) {
+    console.error('Error fetching name:', error);
+    return walletAddress;
+  }
+};
+
+// Custom truncate function: first 3 and last 2 chars
+function customTruncateAddress(address: string): string {
+  if (!address) return "";
+  return address.length > 5 ? `${address.slice(0, 3)}...${address.slice(-2)}` : address;
+}
 
 function mapContractLeaderToLeader(contractLeader: any): Leader {
   const defaultAvatar = imageMap.get('avatar-1')!;
@@ -49,7 +70,14 @@ function mapContractLeaderToLeader(contractLeader: any): Leader {
     followers: Number(contractLeader.totalFollowers) || 0,
     tvl: Number(contractLeader.totalTvl) || 0,
     maxDrawdown: 0,
-    historicalApy: [],
+    historicalApy: [
+      { date: '2025-01-01', apy: 0 },
+      { date: '2025-02-01', apy: 0 },
+      { date: '2025-03-01', apy: 0 },
+      { date: '2025-04-01', apy: 0 },
+      { date: '2025-05-01', apy: 0 },
+      { date: '2025-06-01', apy: 0 },
+    ],
     followersPnl: 0,
     winRate: 0,
     sharpeRatio: 0,
@@ -72,16 +100,38 @@ function useLeadersFromContract(): Leader[] {
 
   const { data: leadersData } = useReadContracts({ contracts });
 
-  const leaders = (leadersData ?? [])
-    .map((result: any) => {
-      if (!result) return null;
-      if (typeof result === 'object' && 'result' in result) return result.result;
-      return result;
-    })
-    .filter(Boolean)
-    .map(mapContractLeaderToLeader);
+  const [leaders, setLeaders] = React.useState<Leader[]>([]);
 
-  console.log('Fetched leader details:', leaders);
+  React.useEffect(() => {
+    async function fetchLeadersWithNames() {
+      const rawLeaders = (leadersData ?? [])
+        .map((result: any) => {
+          if (!result) return null;
+          if (typeof result === 'object' && 'result' in result) return result.result;
+          return result;
+        })
+        .filter(Boolean)
+        .map(mapContractLeaderToLeader);
+
+      // Fetch names for each leader
+      const leadersWithNames = await Promise.all(
+        rawLeaders.map(async (leader, idx) => {
+          // If walletAddress is missing, use the address from safeAddresses
+          const walletAddress = leader.walletAddress || safeAddresses[idx] || '';
+          let name = await getBaseName(walletAddress);
+          // If name is null or empty, use custom truncated address
+          if (!name || name === walletAddress) {
+            name = customTruncateAddress(walletAddress);
+          }
+          return { ...leader, walletAddress, name };
+        })
+      );
+      setLeaders(leadersWithNames);
+      console.log('Fetched leader details with names:', leadersWithNames);
+    }
+    fetchLeadersWithNames();
+  }, [leadersData]);
+
   return leaders;
 }
 
