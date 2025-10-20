@@ -166,7 +166,7 @@ async function checkRequiredEnvVars(): Promise<void> {
             // { name: 'Polygon (eip155:137)', value: 'eip155:137' },
             // { name: 'Arbitrum One (eip155:42161)', value: 'eip155:42161' },
             // { name: 'Optimism (eip155:10)', value: 'eip155:10' },
-            { name: 'Base (eip155:8452)', value: 'eip155:8452' },
+            { name: 'Base (eip155:84532)', value: 'eip155:84532' },
             // { name: 'Solana (solana:mainnet)', value: 'solana:mainnet' },
             // { name: 'Solana Devnet (solana:devnet)', value: 'solana:devnet' },
           ],
