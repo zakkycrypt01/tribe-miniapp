@@ -68,9 +68,9 @@ export function AppHeader() {
         </div>
         {isClient ? (
         <div className="flex items-center gap-2">
-            <Button variant="ghost" className="flex items-center gap-1" disabled={isLoading}>
+            {/* <Button variant="ghost" className="flex items-center gap-1" disabled={isLoading}>
                 <span className="capitalize">{isLoading ? 'Loading...' : role}</span>
-            </Button>
+            </Button> */}
 
             {role === 'leader' && (
               <Button variant="ghost" size="icon" asChild>
