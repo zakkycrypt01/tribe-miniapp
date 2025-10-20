@@ -48,7 +48,26 @@ function FollowerPortfolioPage() {
                 <TabsContent value="current" className="pt-6">
                     <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
                         <FileText className="size-16 text-muted-foreground/50" />
-                        <p className="text-muted-foreground">No Records</p>
+                        {address && balanceData && parseFloat(balanceData.formatted) > 0 ? (
+                            <div className="w-full space-y-4">
+                                <div className="rounded-lg border">
+                                    <div className="grid grid-cols-3 gap-4 p-4 font-semibold border-b">
+                                        <div>Token</div>
+                                        <div className="text-right">Balance</div>
+                                        <div className="text-right">Value (ETH)</div>
+                                    </div>
+                                    <div className="p-4">
+                                        <div className="grid grid-cols-3 gap-4 items-center">
+                                            <div className="font-medium">ETH</div>
+                                            <div className="text-right">{parseFloat(balanceData.formatted).toFixed(4)}</div>
+                                            <div className="text-right">{parseFloat(balanceData.formatted).toFixed(4)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-muted-foreground">No Records</p>
+                        )}
                     </div>
                 </TabsContent>
                 <TabsContent value="past" className="pt-6">
