@@ -29,11 +29,12 @@ function FollowerPortfolioPage() {
     const tokens = useMemo(() => getTokens(), []);
 
     // Token contract addresses (replace with real addresses in production)
-    const tokenAddresses: Record<string, `0x${string}` | undefined> = {
-        ETH: undefined,
-        WETH: '0x4200000000000000000000000000000000000006',
-        USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-        WBTC: '0xcbB7C0006F23900c38EB856149F799620fcb8A4a',
+        const tokenAddresses: Record<string, `0x${string}` | undefined> = {
+            ETH: undefined,
+            WETH: '0x4200000000000000000000000000000000000006',
+            USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+            WBTC: '0xcbB7C0006F23900c38EB856149F799620fcb8A4a',
+            UNI: '0xB62b54F9b13F3bE72A65117a705c930e42563ab4', 
     };
 
     // CoinGecko API ids for tokens
@@ -42,6 +43,7 @@ function FollowerPortfolioPage() {
         WETH: 'weth',
         USDC: 'usd-coin',
         WBTC: 'wrapped-bitcoin',
+        UNI: 'uniswap',
     };
 
     // Fetch live prices from CoinGecko
