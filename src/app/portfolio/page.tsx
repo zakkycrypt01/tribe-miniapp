@@ -95,7 +95,7 @@ function FollowerPortfolioPage() {
             <Tabs defaultValue="current">
                 <TabsList className="grid w-full grid-cols-2 bg-transparent p-0 border-b rounded-none">
                     <TabsTrigger value="current" className="data-[state=active]:shadow-none data-[state=active]:border-b-2 border-b-primary rounded-none">Current Holdings</TabsTrigger>
-                    <TabsTrigger value="past" className="data-[state=active]:shadow-none data-[state=active]:border-b-2 border-b-primary rounded-none">Past Holdings</TabsTrigger>
+                    <TabsTrigger value="past" className="data-[state=active]:shadow-none data-[state=active]:border-b-2 border-b-primary rounded-none">Positions</TabsTrigger>
                 </TabsList>
                 <TabsContent value="current" className="pt-6">
                     <div className="flex flex-col items-center justify-center text-center py-12 gap-4">
