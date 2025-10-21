@@ -338,7 +338,24 @@ export default function NewPositionPage() {
             }
         }
 
-        // If no calculated price available, mark as unavailable
+        // Fallback: set some basic mock market prices for demo pairs
+        if ((token1Symbol === 'USDC' && (token2Symbol === 'ETH' || token2Symbol === 'WETH')) || (token2Symbol === 'USDC' && (token1Symbol === 'ETH' || token1Symbol === 'WETH'))) {
+            // 1 USDC = 0.00026 ETH roughly (example) — but our UI shows token2 per token1; ensure consistent
+            if (token1Symbol === 'USDC') setMarketPrice(0.00026);
+            else setMarketPrice(3847.39); // ETH per USDC in display usage
+            return;
+        }
+
+        if (token1Symbol === 'USDC' && token2Symbol === 'WBTC') {
+            setMarketPrice(0.00000012); // demo placeholder
+            return;
+        }
+
+        if (token1Symbol === 'ETH' && token2Symbol === 'UNI') {
+            setMarketPrice(1000); // demo placeholder
+            return;
+        }
+
         setMarketPrice(null);
     }, [token1Symbol, token2Symbol, calculatedPosition]);
 
@@ -353,9 +370,9 @@ export default function NewPositionPage() {
                     
                     <div className="flex justify-between items-center mb-6">
                         <h1 className="text-3xl font-bold">New position</h1>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm">Reset</Button>
-                                <Select defaultValue="v3">
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm">Reset</Button>
+                            <Select defaultValue="v3">
                                 <SelectTrigger className="w-[120px] h-9 text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -363,8 +380,8 @@ export default function NewPositionPage() {
                                     <SelectItem value="v2">v2 position</SelectItem>
                                     <SelectItem value="v3">v3 position</SelectItem>
                                 </SelectContent>
-                                </Select>
-                               <Button variant="ghost" size="icon"><Settings className="size-5" /></Button>
+                            </Select>
+                            <Button variant="ghost" size="icon"><Settings className="size-5" /></Button>
                         </div>
                     </div>
 
@@ -402,7 +419,7 @@ export default function NewPositionPage() {
                                                     <h3 className="font-semibold mb-1">Fee tier</h3>
                                                     <p className="text-sm text-muted-foreground">The amount earned providing liquidity. All v2 pools have fixed 0.3% fees. For more options, provide liquidity on v3.</p>
                                                 </div>
-                                                <Button size="lg" className="w-full h-12 text-base" onClick={() => setCurrentStep(2)} disabled={marketPrice === null}>Continue</Button>
+                                                <Button size="lg" className="w-full h-12 text-base" onClick={() => setCurrentStep(2)}>Continue</Button>
                                             </CardContent>
                                         </Card>
                                     )}
@@ -418,7 +435,6 @@ export default function NewPositionPage() {
                                                         <div>
                                                             <p className="font-bold text-lg">{token1.symbol} / {token2.symbol}</p>
                                                             <p className="text-xs text-muted-foreground">Market price: {marketPrice ? `${marketPrice} ${token2.symbol} per ${token1.symbol}` : '—'}</p>
-                                                                <p className="text-xs text-muted-foreground">Market price: {marketPrice ? `${marketPrice} ${token2.symbol} per ${token1.symbol}` : 'Not available'}</p>
                                                         </div>
                                                         <Badge variant="secondary">v3</Badge>
                                                         <Badge variant="secondary">0.3%</Badge>
