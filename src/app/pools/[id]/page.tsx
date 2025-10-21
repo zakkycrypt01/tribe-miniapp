@@ -1,7 +1,7 @@
 
 "use client";
 
-import { getUniswapPoolData, getPoolTransactions } from "@/app/lib/mock-data";
+import { getUniswapPoolData, getPoolTransactions, getUniswapPools } from "@/app/lib/mock-data";
 import { notFound, useParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,52 @@ import { TransactionsTable } from "@/components/app/transactions-table";
 export default function PoolDetailsPage() {
     const params = useParams();
     const id = typeof params.id === 'string' ? params.id : '';
-    const pool = getUniswapPoolData(id);
+    // Try several ways to resolve the requested pool id:
+    // 1) direct id lookup
+    // 2) match by poolAddress
+    // 3) match by pair symbols (e.g. "ETH/USDC")
     const transactions = getPoolTransactions();
 
+    let pool = getUniswapPoolData(id);
     if (!pool) {
-        notFound();
+        const allPools = getUniswapPools();
+        // try poolAddress match (id could be an address)
+        const byAddress = allPools.find(p => p.poolAddress?.toLowerCase() === id.toLowerCase());
+        if (byAddress) pool = byAddress;
+        // try pair symbol match like 'eth-usdc' or 'eth/usdc'
+        if (!pool) {
+            const normalized = id.replace(/[-_]/g, '/').toLowerCase();
+            const byPair = allPools.find(p => {
+                const [a, b] = p.pair;
+                const s1 = `${a.symbol}/${b.symbol}`.toLowerCase();
+                const s2 = `${b.symbol}/${a.symbol}`.toLowerCase();
+                return s1 === normalized || s2 === normalized || s1.replace('/', '-') === id.toLowerCase();
+            });
+            if (byPair) pool = byPair;
+        }
+    }
+
+    if (!pool) {
+        // If still not found, render a friendly fallback listing discovered pools
+        const available = getUniswapPools();
+        return (
+            <main className="flex flex-1 flex-col p-4 md:p-6 space-y-6">
+                <div className="text-lg font-semibold">Pool not found</div>
+                <p className="text-sm text-muted-foreground">We couldn't find a pool matching "{id}". Here are discovered pools you can open:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    {available.map(p => {
+                        const [t0, t1] = p.pair;
+                        const hrefId = (p.poolAddress || p.id || '').toLowerCase();
+                        return (
+                            <Link key={hrefId} href={`/pools/${hrefId}`} className="p-3 border rounded-md hover:shadow-sm">
+                                <div className="text-sm font-medium">{t0.symbol} / {t1.symbol}</div>
+                                <div className="text-xs text-muted-foreground">{p.protocolVersion} • {p.feeTier}% • {p.poolAddress?.slice(0,6)}...{p.poolAddress?.slice(-4)}</div>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </main>
+        );
     }
 
     const [token0, token1] = pool.pair;
