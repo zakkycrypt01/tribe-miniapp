@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +21,17 @@ import { useAccount } from "wagmi";
 import { writeContract, waitForTransactionReceipt } from "wagmi/actions";
 import { erc20Abi, parseUnits } from "viem";
 import { config as wagmiConfig } from "@/components/providers/WagmiProvider";
+import {
+    calculateLiquidityPosition,
+    getMintParams,
+    calculateOptimalAmounts,
+    getPoolAddress,
+    USDC_TOKEN,
+    WETH_TOKEN,
+    WBTC_TOKEN,
+    UNI_TOKEN,
+    NONFUNGIBLE_POSITION_MANAGER,
+} from "@/lib/lpcheck";
 
 
 // Temporary token address/decimals map for Base Sepolia
@@ -112,6 +123,8 @@ export default function NewPositionPage() {
     const [amount2, setAmount2] = useState('');
     const [rangeType, setRangeType] = useState('custom');
     const [showReviewDialog, setShowReviewDialog] = useState(false);
+    const [calculatedPosition, setCalculatedPosition] = useState<any | null>(null);
+    const [isCalculating, setIsCalculating] = useState(false);
     const [creationStep, setCreationStep] = useState<CreationStep>('review');
     const [minPrice, setMinPrice] = useState(0);
     const [maxPrice, setMaxPrice] = useState<number | 'Infinity'>('Infinity');
@@ -123,7 +136,6 @@ export default function NewPositionPage() {
 
     const createUniswapV3Position = async () => {
         if (!address) throw new Error('Wallet not connected');
-        // Resolve token addresses and decimals
         const symA = token1Symbol;
         const symB = token2Symbol;
         const addrA = TOKEN_ADDRESSES[symA] as `0x${string}` | undefined;
@@ -132,12 +144,10 @@ export default function NewPositionPage() {
         const decA = TOKEN_DECIMALS[symA] ?? 18;
         const decB = TOKEN_DECIMALS[symB] ?? 18;
 
-        // Parse user amounts
         const amtA = parseUnits((amount1 || '0') as `${number}` as unknown as string, decA);
         const amtB = parseUnits((amount2 || '0') as `${number}` as unknown as string, decB);
         if (amtA === 0n || amtB === 0n) throw new Error('Amounts must be greater than zero');
 
-        // Sort tokens to token0/token1 by address
         const token0 = addrA.toLowerCase() < addrB.toLowerCase() ? addrA : addrB;
         const token1 = token0 === addrA ? addrB : addrA;
         const amount0Desired = token0 === addrA ? amtA : amtB;
@@ -145,12 +155,9 @@ export default function NewPositionPage() {
 
         // Fee tier fixed to 0.3% for now
         const fee: 3000 = 3000;
-        // Full-range ticks for simplicity (custom range pending tick math)
         const tickLower: -887220 = -887220;
         const tickUpper: 887220 = 887220;
 
-        // 1) Approve adapter to spend tokens
-        // Approve token0
         const approve0Hash = await writeContract(wagmiConfig, {
             abi: erc20Abi,
             address: token0,
@@ -160,7 +167,6 @@ export default function NewPositionPage() {
         });
         await waitForTransactionReceipt(wagmiConfig, { hash: approve0Hash });
 
-        // Approve token1
         const approve1Hash = await writeContract(wagmiConfig, {
             abi: erc20Abi,
             address: token1,
@@ -170,7 +176,6 @@ export default function NewPositionPage() {
         });
         await waitForTransactionReceipt(wagmiConfig, { hash: approve1Hash });
 
-        // 2) Call adapter mintPosition
         const txHash = await writeContract(wagmiConfig, {
             abi: ABIS.TribeUniswapV3Adapter,
             address: CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`,
@@ -196,7 +201,6 @@ export default function NewPositionPage() {
     const handleCreate = async () => {
         try {
             setCreationStep('approving');
-            // Approvals happen inside createUniswapV3Position before mint
             setCreationStep('confirming');
             await createUniswapV3Position();
             setCreationStep('complete');
@@ -210,6 +214,8 @@ export default function NewPositionPage() {
         setShowReviewDialog(false);
         setTimeout(() => {
             setCreationStep('review');
+            setCalculatedPosition(null);
+            setIsCalculating(false);
         }, 500);
     }
 
@@ -222,7 +228,7 @@ export default function NewPositionPage() {
         const step = 0.1;
         setMinPrice(prev => {
             const newPrice = increment ? prev + step : prev - step;
-            return Math.max(0, parseFloat(newPrice.toFixed(2))); // Ensure price doesn't go below 0
+            return Math.max(0, parseFloat(newPrice.toFixed(2)));
         });
     };
     
@@ -236,6 +242,57 @@ export default function NewPositionPage() {
             return parseFloat(newPrice.toFixed(2));
         });
     };
+
+    useEffect(() => {
+        if (!showReviewDialog) return;
+
+        const runCalc = async () => {
+            try {
+                setIsCalculating(true);
+
+                // Map selected symbols to Uniswap Token objects exported from lpcheck
+                let tokenA: any | null = null;
+                let tokenB: any | null = null;
+
+                // Prefer the exported constants for common tokens
+                const mapBySymbol = (sym: string) => {
+                    if (sym === 'USDC') return USDC_TOKEN;
+                    if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
+                    if (sym === 'WBTC') return WBTC_TOKEN;
+                    if (sym === 'UNI') return UNI_TOKEN;
+                    return null;
+                };
+
+                tokenA = mapBySymbol(token1Symbol);
+                tokenB = mapBySymbol(token2Symbol);
+
+                if (!tokenA || !tokenB) {
+                    // Unsupported tokens for on-chain calculation in this demo
+                    setCalculatedPosition({ error: 'Token pair not supported for on-chain calculation in demo' });
+                    setIsCalculating(false);
+                    return;
+                }
+
+                const params = {
+                    token0: tokenA,
+                    token1: tokenB,
+                    fee: 3000,
+                    amount0: amount1 || '0',
+                    amount1: amount2 || '0',
+                };
+
+                const pos = await calculateLiquidityPosition(params);
+                setCalculatedPosition(pos);
+            } catch (e) {
+                console.error('Error calculating position:', e);
+                setCalculatedPosition({ error: String(e) });
+            } finally {
+                setIsCalculating(false);
+            }
+        };
+
+        runCalc();
+    }, [showReviewDialog, token1Symbol, token2Symbol, amount1, amount2]);
 
 
     return (
@@ -441,6 +498,43 @@ export default function NewPositionPage() {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+                                <div className="mt-4">
+                                    <h4 className="text-sm text-muted-foreground mb-1">Estimated position</h4>
+                                    {isCalculating ? (
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <Loader2 className="h-4 w-4 animate-spin" /> Calculating on-chain estimates...
+                                        </div>
+                                    ) : calculatedPosition ? (
+                                        calculatedPosition.error ? (
+                                            <p className="text-sm text-destructive">{calculatedPosition.error}</p>
+                                        ) : (
+                                            <div className="text-sm">
+                                                <div className="flex justify-between">
+                                                    <span>Amount {token1.symbol}</span>
+                                                    <span className="font-medium">{calculatedPosition.amount0}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Amount {token2.symbol}</span>
+                                                    <span className="font-medium">{calculatedPosition.amount1}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Liquidity</span>
+                                                    <span className="font-medium">{calculatedPosition.liquidity}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Tick range</span>
+                                                    <span className="font-medium">{calculatedPosition.tickLower} — {calculatedPosition.tickUpper}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Current price</span>
+                                                    <span className="font-medium">{calculatedPosition.currentPrice}</span>
+                                                </div>
+                                            </div>
+                                        )
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">No estimation available</p>
+                                    )}
                                 </div>
                             </div>
 
