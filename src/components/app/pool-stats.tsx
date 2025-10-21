@@ -33,13 +33,18 @@ function StatRow({ label, value, subValue, subValueClassName }: { label: string,
 }
 
 export function PoolStats({ pool }: { pool: UniswapPool }) {
-    const [token0, token1] = pool.poolBalances;
+    // Defensive: poolBalances may be empty or missing for dynamically-discovered pools
+    const balances = Array.isArray(pool.poolBalances) ? pool.poolBalances : [];
+    const defaultBal = { token: { symbol: '' }, amount: 0 } as any;
+    const [token0 = defaultBal, token1 = defaultBal] = balances;
+
     // Calculate value based on TVL and percentage of each token.
     // This is a simplification. A real app would need price feeds.
-    const totalBalanceValue = pool.tvl;
-    const token0Value = (token0.amount / (token0.amount + token1.amount)) * totalBalanceValue;
-    const token1Value = (token1.amount / (token0.amount + token1.amount)) * totalBalanceValue;
-    const token0Percentage = (token0Value / totalBalanceValue) * 100;
+    const totalBalanceValue = Number(pool.tvl) || 0;
+    const sumAmounts = (Number(token0.amount) || 0) + (Number(token1.amount) || 0);
+    const token0Value = sumAmounts > 0 ? (Number(token0.amount) / sumAmounts) * totalBalanceValue : 0;
+    const token1Value = sumAmounts > 0 ? (Number(token1.amount) / sumAmounts) * totalBalanceValue : 0;
+    const token0Percentage = totalBalanceValue > 0 ? (token0Value / totalBalanceValue) * 100 : 0;
     
     const isTvlUp = pool.tvlChange >= 0;
     const isVolumeUp = pool.volume1dChange >= 0;
@@ -67,10 +72,10 @@ export function PoolStats({ pool }: { pool: UniswapPool }) {
                         <div>
                             <p className="text-sm text-muted-foreground mb-2">Pool balances</p>
                             <div className="flex justify-between text-xs font-mono mb-1">
-                                <span>{formatNumber(token0.amount)} {token0.token.symbol}</span>
-                                <span>{formatNumber(token1.amount)} {token1.token.symbol}</span>
+                                <span>{formatNumber(Number(token0.amount) || 0)} {token0.token?.symbol || ''}</span>
+                                <span>{formatNumber(Number(token1.amount) || 0)} {token1.token?.symbol || ''}</span>
                             </div>
-                            <Progress value={token0Percentage} />
+                            <Progress value={Math.max(0, Math.min(100, Number.isFinite(token0Percentage) ? token0Percentage : 0))} />
                         </div>
                          <StatRow 
                             label="TVL"
