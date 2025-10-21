@@ -127,6 +127,8 @@ export default function NewPositionPage() {
     const [isCalculating, setIsCalculating] = useState(false);
     const [marketPrice, setMarketPrice] = useState<number | null>(null);
     const [isFetchingMarketPrice, setIsFetchingMarketPrice] = useState(false);
+    const [poolAddress, setPoolAddress] = useState<string | null>(null);
+    const [isFetchingPoolAddress, setIsFetchingPoolAddress] = useState(false);
     const [creationStep, setCreationStep] = useState<CreationStep>('review');
     const [minPrice, setMinPrice] = useState(0);
     const [maxPrice, setMaxPrice] = useState<number | 'Infinity'>('Infinity');
@@ -456,6 +458,50 @@ export default function NewPositionPage() {
     };
 
     useEffect(() => {
+        let cancelled = false;
+
+        const fetchPoolAddr = async () => {
+            if (!publicClient) {
+                setPoolAddress(null);
+                return;
+            }
+
+            // Map to Uniswap Token constants
+            const mapBySymbol = (sym: string) => {
+                if (sym === 'USDC') return USDC_TOKEN;
+                if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
+                if (sym === 'WBTC') return WBTC_TOKEN;
+                if (sym === 'UNI') return UNI_TOKEN;
+                return null;
+            };
+
+            const tokenA = mapBySymbol(token1Symbol);
+            const tokenB = mapBySymbol(token2Symbol);
+
+            if (!tokenA || !tokenB) {
+                setPoolAddress(null);
+                return;
+            }
+
+            try {
+                setIsFetchingPoolAddress(true);
+                const addr = await getPoolAddress(publicClient, tokenA, tokenB, 3000);
+                if (cancelled) return;
+                setPoolAddress(addr);
+            } catch (e) {
+                console.warn('Failed to fetch pool address for pair:', e);
+                setPoolAddress(null);
+            } finally {
+                setIsFetchingPoolAddress(false);
+            }
+        };
+
+        fetchPoolAddr();
+
+        return () => { cancelled = true; };
+    }, [token1Symbol, token2Symbol, publicClient]);
+
+    useEffect(() => {
         if (!showReviewDialog) return;
 
         const runCalc = async () => {
@@ -681,6 +727,13 @@ export default function NewPositionPage() {
                                                         <div>
                                                             <p className="font-bold text-lg">{token1.symbol} / {token2.symbol}</p>
                                                             <p className="text-xs text-muted-foreground">Market price: {marketPrice ? `${marketPrice} ${token2.symbol} per ${token1.symbol}` : '—'}</p>
+                                                                {isFetchingPoolAddress ? (
+                                                                    <p className="text-xs text-muted-foreground">Pool: fetching...</p>
+                                                                ) : poolAddress ? (
+                                                                    <p className="text-xs text-muted-foreground">Pool: {poolAddress}</p>
+                                                                ) : (
+                                                                    <p className="text-xs text-muted-foreground">Pool: —</p>
+                                                                )}
                                                         </div>
                                                         <Badge variant="secondary">v3</Badge>
                                                         <Badge variant="secondary">0.3%</Badge>
