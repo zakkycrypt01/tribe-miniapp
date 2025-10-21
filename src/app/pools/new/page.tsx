@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Stepper, Step } from "@/components/ui/stepper";
-import { getTokens } from "@/app/lib/mock-data";
+import { getTokens, getUniswapPoolData, getUniswapPools } from "@/app/lib/mock-data";
+import { useSearchParams } from 'next/navigation';
 import type { Token } from "@/app/lib/types";
 import Image from "next/image";
 import Link from "next/link";
@@ -38,23 +39,7 @@ import {
 } from "@/lib/lpcheck";
 
 
-// Temporary token address/decimals map for Base Sepolia
-// Note: ETH is treated as WETH
-const TOKEN_ADDRESSES: Record<string, `0x${string}` | undefined> = {
-    ETH: '0x4200000000000000000000000000000000000006',
-    WETH: '0x4200000000000000000000000000000000000006',
-    USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-    WBTC: '0xcbB7C0006F23900c38EB856149F799620fcb8A4a',
-    UNI: '0xB62b54F9b13F3bE72A65117a705c930e42563ab4',
-};
-
-const TOKEN_DECIMALS: Record<string, number> = {
-    ETH: 18,
-    WETH: 18,
-    USDC: 6,
-    WBTC: 8,
-    UNI: 18,
-};
+// Token addresses/decimals will be derived from Uniswap SDK Token objects (no hardcoded maps)
 
 const TokenSelector = ({ tokens, value, onChange }: { tokens: Token[], value?: string, onChange: (value: string) => void }) => {
     const selectedToken = tokens.find(t => t.symbol === value);
@@ -86,7 +71,20 @@ const TokenSelector = ({ tokens, value, onChange }: { tokens: Token[], value?: s
     )
 }
 
-const AmountInput = ({ token, value, onChange }: { token: Token, value: string, onChange: (value: string) => void }) => {
+const AmountInput = ({ token, value, onChange, marketPrice, otherSymbol, isBase }: { token: Token, value: string, onChange: (value: string) => void, marketPrice?: number | null, otherSymbol?: string, isBase?: boolean }) => {
+    // marketPrice is expressed as otherSymbol per base token (token2 per token1)
+    let convertedLabel = '—';
+    const n = Number(value);
+    if (marketPrice && isFinite(n)) {
+        if (isBase) {
+            // show equivalent in otherSymbol
+            convertedLabel = `${(n * marketPrice).toFixed(6)} ${otherSymbol}`;
+        } else {
+            // show equivalent in base token
+            convertedLabel = marketPrice !== 0 ? `${(n / marketPrice).toFixed(6)} ${otherSymbol}` : '—';
+        }
+    }
+
     return (
         <div className="bg-card/50 p-4 rounded-lg">
             <div className="flex justify-between items-center mb-2">
@@ -103,8 +101,8 @@ const AmountInput = ({ token, value, onChange }: { token: Token, value: string, 
                 </div>
             </div>
             <div className="flex justify-between items-center text-xs text-muted-foreground">
-                <span>${isNaN(Number(value)) ? '0.00' : (Number(value) * 3847.39 / (token.symbol === 'ETH' ? 1 : 3847.39)).toFixed(2)}</span>
-                <span>Balance: 0.00</span>
+                <span>{convertedLabel}</span>
+                <span>Balance: —</span>
             </div>
         </div>
     )
@@ -120,6 +118,17 @@ export default function NewPositionPage() {
         { id: 2, name: 'Set price range and deposit amounts' }
     ];
     const tokens = getTokens();
+    const searchParams = useSearchParams();
+    const poolParam = searchParams ? searchParams.get('pool') : null;
+
+    // Helper to map UI symbol to Uniswap SDK Token objects
+    const mapBySymbol = (sym: string) => {
+        if (sym === 'USDC') return USDC_TOKEN;
+        if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
+        if (sym === 'WBTC') return WBTC_TOKEN;
+        if (sym === 'UNI') return UNI_TOKEN;
+        return null;
+    };
 
     const [token1Symbol, setToken1Symbol] = useState('USDC');
     const [token2Symbol, setToken2Symbol] = useState('ETH');
@@ -156,11 +165,14 @@ export default function NewPositionPage() {
         if (!address) throw new Error('Wallet not connected');
         const symA = token1Symbol;
         const symB = token2Symbol;
-        const addrA = TOKEN_ADDRESSES[symA] as `0x${string}` | undefined;
-        const addrB = TOKEN_ADDRESSES[symB] as `0x${string}` | undefined;
-        if (!addrA || !addrB) throw new Error('Unsupported token');
-        const decA = TOKEN_DECIMALS[symA] ?? 18;
-        const decB = TOKEN_DECIMALS[symB] ?? 18;
+        const tokenAObj = mapBySymbol(symA);
+        const tokenBObj = mapBySymbol(symB);
+        if (!tokenAObj || !tokenBObj) throw new Error('Unsupported token');
+
+        const addrA = tokenAObj.address as `0x${string}`;
+        const addrB = tokenBObj.address as `0x${string}`;
+        const decA = tokenAObj.decimals ?? 18;
+        const decB = tokenBObj.decimals ?? 18;
 
         const amtA = parseUnits((amount1 || '0') as `${number}` as unknown as string, decA);
         const amtB = parseUnits((amount2 || '0') as `${number}` as unknown as string, decB);
@@ -172,16 +184,6 @@ export default function NewPositionPage() {
         let amount1Desired = token0 === addrA ? amtB : amtA;
 
         // If one side is zero, attempt to compute the optimal counterpart using SDK
-        const mapBySymbol = (sym: string) => {
-            if (sym === 'USDC') return USDC_TOKEN;
-            if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
-            if (sym === 'WBTC') return WBTC_TOKEN;
-            if (sym === 'UNI') return UNI_TOKEN;
-            return null;
-        };
-
-        const tokenAObj = mapBySymbol(symA);
-        const tokenBObj = mapBySymbol(symB);
 
         if (tokenAObj && tokenBObj) {
             // Determine pool token ordering
@@ -322,7 +324,8 @@ export default function NewPositionPage() {
             setAmount2('');
             return;
         }
-        const dec2 = TOKEN_DECIMALS[token2Symbol] ?? 18;
+        const tokenBObj = mapBySymbol(token2Symbol);
+        const dec2 = tokenBObj?.decimals ?? 18;
         const converted = n * marketPrice;
         setAmount2(formatDisplayAmount(converted, dec2));
     };
@@ -334,7 +337,8 @@ export default function NewPositionPage() {
             setAmount1('');
             return;
         }
-        const dec1 = TOKEN_DECIMALS[token1Symbol] ?? 18;
+        const tokenAObj = mapBySymbol(token1Symbol);
+        const dec1 = tokenAObj?.decimals ?? 18;
         const converted = n / marketPrice;
         setAmount1(formatDisplayAmount(converted, dec1));
     };
@@ -371,12 +375,14 @@ export default function NewPositionPage() {
             return false;
         }
 
-        const addrA = TOKEN_ADDRESSES[token1Symbol];
-        const addrB = TOKEN_ADDRESSES[token2Symbol];
-        if (!addrA || !addrB) {
+        const tokenAObj = mapBySymbol(token1Symbol);
+        const tokenBObj = mapBySymbol(token2Symbol);
+        if (!tokenAObj || !tokenBObj) {
             setPreflightError('Unsupported token pair');
             return false;
         }
+        const addrA = tokenAObj.address as `0x${string}`;
+        const addrB = tokenBObj.address as `0x${string}`;
 
         // Check pool existence across common fee tiers
         try {
@@ -404,8 +410,8 @@ export default function NewPositionPage() {
 
         // Check balances and allowances
         try {
-            const decA = TOKEN_DECIMALS[token1Symbol] ?? 18;
-            const decB = TOKEN_DECIMALS[token2Symbol] ?? 18;
+            const decA = tokenAObj.decimals ?? 18;
+            const decB = tokenBObj.decimals ?? 18;
 
             const wantA = parseUnits(amount1 || '0', decA);
             const wantB = parseUnits(amount2 || '0', decB);
@@ -514,7 +520,8 @@ export default function NewPositionPage() {
                 const info = await findPoolForPair(publicClient, tokenA, tokenB, FEE_TIERS);
                 if (cancelled) return;
                 if (info) {
-                    setPoolAddress(info.poolAddress);
+                    const chosen = poolParam ?? info.poolAddress;
+                    setPoolAddress(chosen);
                     setDetectedFee(info.fee);
                     setSelectedFee(info.fee);
                     // Try to find additional available fee pools
@@ -679,12 +686,15 @@ export default function NewPositionPage() {
                 setIsFetchingMarketPrice(true);
 
                 // Use a tiny amount to fetch pool state and price
+                const chosenPool = poolParam ?? poolAddress;
+                const poolAddrTyped = chosenPool ? (chosenPool as `0x${string}`) : undefined;
                 const pos = await calculateLiquidityPosition({
                     token0: tokenA,
                     token1: tokenB,
                     fee: feeToUse,
                     amount0: '1',
                     amount1: '1',
+                    poolAddress: poolAddrTyped,
                 });
 
                 if (cancelled) return;
@@ -715,12 +725,13 @@ export default function NewPositionPage() {
         if (!marketPrice) return;
 
         // If user entered amount1, compute amount2
-        if (amount1 && !amount2) {
+                if (amount1 && !amount2) {
             const n = Number(amount1);
             if (!isNaN(n) && isFinite(n)) {
-                const dec2 = TOKEN_DECIMALS[token2Symbol] ?? 18;
-                const converted = n * marketPrice;
-                setAmount2(formatDisplayAmount(converted, dec2));
+                        const tokenBObj = mapBySymbol(token2Symbol);
+                        const dec2 = tokenBObj?.decimals ?? 18;
+                        const converted = n * marketPrice;
+                        setAmount2(formatDisplayAmount(converted, dec2));
             }
         }
 
@@ -728,7 +739,8 @@ export default function NewPositionPage() {
         if (amount2 && !amount1) {
             const n = Number(amount2);
             if (!isNaN(n) && isFinite(n) && marketPrice !== 0) {
-                const dec1 = TOKEN_DECIMALS[token1Symbol] ?? 18;
+                const tokenAObj = mapBySymbol(token1Symbol);
+                const dec1 = tokenAObj?.decimals ?? 18;
                 const converted = n / marketPrice;
                 setAmount1(formatDisplayAmount(converted, dec1));
             }
@@ -882,8 +894,8 @@ export default function NewPositionPage() {
                                                     <CardDescription>Specify the token amounts for your liquidity contribution.</CardDescription>
                                                 </CardHeader>
                                                 <CardContent className="space-y-4">
-                                                    <AmountInput token={token1} value={amount1} onChange={handleAmount1Change} />
-                                                    <AmountInput token={token2} value={amount2} onChange={handleAmount2Change} />
+                                                    <AmountInput token={token1} value={amount1} onChange={handleAmount1Change} marketPrice={marketPrice} otherSymbol={token2.symbol} isBase={true} />
+                                                    <AmountInput token={token2} value={amount2} onChange={handleAmount2Change} marketPrice={marketPrice} otherSymbol={token1.symbol} isBase={false} />
 
                                                     <Button size="lg" className="w-full h-12 text-base" disabled={!amount1 || !amount2} onClick={() => setShowReviewDialog(true)}>
                                                         {!amount1 || !amount2 ? "Enter an amount" : "Review"}
@@ -944,19 +956,19 @@ export default function NewPositionPage() {
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-2">
-                                            <Image src={token1.icon.imageUrl} alt={token1.name} width={24} height={24} className="rounded-full" data-ai-hint={token1.icon.imageHint}/>
-                                            <div>
-                                                <p className="font-semibold">{amount1} {token1.symbol}</p>
-                                                <p className="text-xs text-muted-foreground">${(parseFloat(amount1) * 1).toFixed(2)}</p>
-                                            </div>
-                                        </div>
+                                                    <Image src={token1.icon.imageUrl} alt={token1.name} width={24} height={24} className="rounded-full" data-ai-hint={token1.icon.imageHint}/>
+                                                    <div>
+                                                        <p className="font-semibold">{amount1} {token1.symbol}</p>
+                                                        <p className="text-xs text-muted-foreground">{marketPrice ? `${(Number(amount1) * marketPrice).toFixed(6)} ${token2.symbol}` : '—'}</p>
+                                                    </div>
+                                                </div>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2">
                                             <Image src={token2.icon.imageUrl} alt={token2.name} width={24} height={24} className="rounded-full" data-ai-hint={token2.icon.imageHint}/>
                                             <div>
                                                 <p className="font-semibold">{amount2} {token2.symbol}</p>
-                                                <p className="text-xs text-muted-foreground">${(parseFloat(amount2) * 3847.39).toFixed(2)}</p>
+                                                <p className="text-xs text-muted-foreground">{marketPrice ? `${(Number(amount2) / marketPrice).toFixed(6)} ${token1.symbol}` : '—'}</p>
                                             </div>
                                         </div>
                                     </div>

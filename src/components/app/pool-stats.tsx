@@ -52,9 +52,9 @@ export function PoolStats({ pool }: { pool: UniswapPool }) {
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary">Swap</Button>
+                    <Button variant="secondary">Swap</Button>
                 <Button variant="secondary" asChild>
-                    <Link href="/pools/new">Add Liquidity</Link>
+                    <Link href={`/pools/new?pool=${encodeURIComponent(pool.poolAddress)}`}>Add Liquidity</Link>
                 </Button>
             </div>
             

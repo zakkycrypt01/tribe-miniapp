@@ -133,6 +133,7 @@ interface LiquidityParams {
   amount1: string;
   tickLower?: number;
   tickUpper?: number;
+  poolAddress?: `0x${string}`;
   slippageTolerance?: number;
 }
 
@@ -325,11 +326,11 @@ async function calculateLiquidityPosition(
     transport: http(),
   });
 
-  // Get pool address from factory
-  const poolAddress = await getPoolAddress(client, token0, token1, fee);
-  console.log(`Pool address: ${poolAddress}`);
+  // Use provided poolAddress when available, otherwise discover via factory
+  const poolAddr = params.poolAddress ?? await getPoolAddress(client, token0, token1, fee);
+  console.log(`Pool address: ${poolAddr}`);
 
-  const { pool: poolState, tickSpacing } = await getPoolState(client, poolAddress);
+  const { pool: poolState, tickSpacing } = await getPoolState(client, poolAddr);
 
   // Create Pool instance - convert values properly
   const pool = new Pool(
