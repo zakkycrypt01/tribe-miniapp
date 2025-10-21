@@ -381,6 +381,62 @@ export default function NewPositionPage() {
         setMarketPrice(null);
     }, [token1Symbol, token2Symbol, calculatedPosition]);
 
+    // Proactively fetch market price when the token pair changes so the pair auto-converts before review
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchPriceForPair = async () => {
+            // Map to Uniswap Token constants
+            const mapBySymbol = (sym: string) => {
+                if (sym === 'USDC') return USDC_TOKEN;
+                if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
+                if (sym === 'WBTC') return WBTC_TOKEN;
+                if (sym === 'UNI') return UNI_TOKEN;
+                return null;
+            };
+
+            const tokenA = mapBySymbol(token1Symbol);
+            const tokenB = mapBySymbol(token2Symbol);
+            if (!tokenA || !tokenB) {
+                setMarketPrice(null);
+                return;
+            }
+
+            try {
+                setIsFetchingMarketPrice(true);
+
+                // Use a tiny amount to fetch pool state and price
+                const pos = await calculateLiquidityPosition({
+                    token0: tokenA,
+                    token1: tokenB,
+                    fee: 3000,
+                    amount0: '1',
+                    amount1: '1',
+                });
+
+                if (cancelled) return;
+
+                const parsed = Number(pos.currentPrice);
+                if (!isNaN(parsed)) {
+                    setMarketPrice(parsed);
+                } else {
+                    setMarketPrice(null);
+                }
+            } catch (e) {
+                console.warn('Failed to fetch market price for pair:', e);
+                setMarketPrice(null);
+            } finally {
+                setIsFetchingMarketPrice(false);
+            }
+        };
+
+        fetchPriceForPair();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [token1Symbol, token2Symbol]);
+
     // If market price becomes available or tokens change, recompute the paired amount
     useEffect(() => {
         if (!marketPrice) return;
