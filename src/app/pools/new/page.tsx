@@ -155,8 +155,58 @@ export default function NewPositionPage() {
 
         const token0 = addrA.toLowerCase() < addrB.toLowerCase() ? addrA : addrB;
         const token1 = token0 === addrA ? addrB : addrA;
-        const amount0Desired = token0 === addrA ? amtA : amtB;
-        const amount1Desired = token0 === addrA ? amtB : amtA;
+        let amount0Desired = token0 === addrA ? amtA : amtB;
+        let amount1Desired = token0 === addrA ? amtB : amtA;
+
+        // If one side is zero, attempt to compute the optimal counterpart using SDK
+        const mapBySymbol = (sym: string) => {
+            if (sym === 'USDC') return USDC_TOKEN;
+            if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
+            if (sym === 'WBTC') return WBTC_TOKEN;
+            if (sym === 'UNI') return UNI_TOKEN;
+            return null;
+        };
+
+        const tokenAObj = mapBySymbol(symA);
+        const tokenBObj = mapBySymbol(symB);
+
+        if (tokenAObj && tokenBObj) {
+            // Determine pool token ordering
+            const token0Obj = tokenAObj.sortsBefore(tokenBObj) ? tokenAObj : tokenBObj;
+            const token1Obj = token0Obj === tokenAObj ? tokenBObj : tokenAObj;
+
+            if ((amtA === 0n && amtB > 0n) || (amtB === 0n && amtA > 0n)) {
+                try {
+                    // tokenIn is the one user supplied
+                    const isAInput = amtA > 0n;
+                    const tokenInObj = isAInput ? tokenAObj : tokenBObj;
+                    const tokenOutObj = isAInput ? tokenBObj : tokenAObj;
+                    const amountIn = isAInput ? (amount1 || '0') : (amount2 || '0');
+
+                    const optimal = await calculateOptimalAmounts(
+                        tokenInObj,
+                        tokenOutObj,
+                        3000,
+                        amountIn
+                    );
+
+                    // optimal.amount0/amount1 correspond to pool token0 & token1
+                    const parsed0 = parseUnits(optimal.amount0, token0Obj.decimals);
+                    const parsed1 = parseUnits(optimal.amount1, token1Obj.decimals);
+
+                    // Map parsed0/parsed1 back to amount0Desired/amount1Desired based on token0 address
+                    if (token0Obj.address.toLowerCase() === addrA.toLowerCase()) {
+                        amount0Desired = parsed0;
+                        amount1Desired = parsed1;
+                    } else {
+                        amount0Desired = parsed1;
+                        amount1Desired = parsed0;
+                    }
+                } catch (e) {
+                    console.warn('Failed to compute optimal amounts:', e);
+                }
+            }
+        }
 
         // Fee tier fixed to 0.3% for now
         const fee: 3000 = 3000;
@@ -355,6 +405,12 @@ export default function NewPositionPage() {
             }
             if (BigInt(allowanceB) < wantB) {
                 setPreflightError('Insufficient allowance for token1; please approve');
+                return false;
+            }
+
+            // Ensure desired amounts are non-zero to avoid mint failures
+            if (wantA === 0n || wantB === 0n) {
+                setPreflightError('Both token amounts must be greater than zero');
                 return false;
             }
 
