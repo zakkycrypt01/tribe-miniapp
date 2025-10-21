@@ -99,7 +99,7 @@ const AmountInput = ({ token, value, onChange }: { token: Token, value: string, 
                 </div>
             </div>
             <div className="flex justify-between items-center text-xs text-muted-foreground">
-                <span>${(parseFloat(value) * 3847.39 / (token.symbol === 'ETH' ? 1 : 3847.39)).toFixed(2) || '0.00'}</span>
+                <span>${isNaN(Number(value)) ? '0.00' : (Number(value) * 3847.39 / (token.symbol === 'ETH' ? 1 : 3847.39)).toFixed(2)}</span>
                 <span>Balance: 0.00</span>
             </div>
         </div>
@@ -380,6 +380,31 @@ export default function NewPositionPage() {
         }
         setMarketPrice(null);
     }, [token1Symbol, token2Symbol, calculatedPosition]);
+
+    // If market price becomes available or tokens change, recompute the paired amount
+    useEffect(() => {
+        if (!marketPrice) return;
+
+        // If user entered amount1, compute amount2
+        if (amount1 && !amount2) {
+            const n = Number(amount1);
+            if (!isNaN(n) && isFinite(n)) {
+                const dec2 = TOKEN_DECIMALS[token2Symbol] ?? 18;
+                const converted = n * marketPrice;
+                setAmount2(formatDisplayAmount(converted, dec2));
+            }
+        }
+
+        // If user entered amount2, compute amount1
+        if (amount2 && !amount1) {
+            const n = Number(amount2);
+            if (!isNaN(n) && isFinite(n) && marketPrice !== 0) {
+                const dec1 = TOKEN_DECIMALS[token1Symbol] ?? 18;
+                const converted = n / marketPrice;
+                setAmount1(formatDisplayAmount(converted, dec1));
+            }
+        }
+    }, [marketPrice, token1Symbol, token2Symbol]);
 
 
     return (
