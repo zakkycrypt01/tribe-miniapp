@@ -600,6 +600,11 @@ export default function NewPositionPage() {
         }
     }, [marketPrice, token1Symbol, token2Symbol]);
 
+    // Clear preflight error as soon as user changes inputs
+    useEffect(() => {
+        if (preflightError) setPreflightError(null);
+    }, [amount1, amount2, token1Symbol, token2Symbol]);
+
 
     return (
         <>
@@ -849,9 +854,12 @@ export default function NewPositionPage() {
                                     <p className="text-muted-foreground">Network cost</p>
                                     <p className="font-semibold">$2.14</p>
                                 </div>
+                                {preflightError && (
+                                    <div className="mt-2 text-sm text-destructive">{preflightError}</div>
+                                )}
                             </div>
 
-                            <Button size="lg" className="w-full h-12 text-base" onClick={handleCreate}>Create</Button>
+                            <Button size="lg" className="w-full h-12 text-base" onClick={handleCreate} disabled={isCalculating || isFetchingMarketPrice || !!preflightError}>Create</Button>
                         </div>
                     )}
                     
