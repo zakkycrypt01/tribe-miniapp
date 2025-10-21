@@ -7,6 +7,16 @@ import type {Abi} from "viem";
 import { Avatar, Name, getName } from '@coinbase/onchainkit/identity';
 import React, { use } from "react";
 import { truncateAddress } from "@/lib/truncateAddress";
+import {
+  findAllPoolsForPair,
+  USDC_TOKEN as SDK_USDC_TOKEN,
+  WETH_TOKEN as SDK_WETH_TOKEN,
+  WBTC_TOKEN as SDK_WBTC_TOKEN,
+  UNI_TOKEN as SDK_UNI_TOKEN,
+  FEE_TIERS,
+} from '@/lib/lpcheck';
+import { createPublicClient, http } from 'viem';
+import { baseSepolia } from 'viem/chains';
 
 
 const useLeaderRegistryGetAllLeaders = () => {
@@ -350,3 +360,58 @@ export function getUniswapPoolData(id: string) {
 export function getPoolTransactions() {
     return POOL_TRANSACTIONS;
 }
+
+// --- Dynamic discovery of Uniswap pools (async) ---
+let dynamicPoolsInitialized = false;
+
+export async function refreshUniswapPools() {
+  try {
+    const client = createPublicClient({ chain: baseSepolia, transport: http() });
+
+    const tokenPairs = [
+      [SDK_WETH_TOKEN, SDK_USDC_TOKEN],
+      [SDK_WETH_TOKEN, SDK_UNI_TOKEN],
+      [SDK_USDC_TOKEN, SDK_WBTC_TOKEN],
+      [SDK_WETH_TOKEN, SDK_WBTC_TOKEN],
+    ];
+
+    const discovered: any[] = [];
+    for (const [t0, t1] of tokenPairs) {
+      const pools = await findAllPoolsForPair(client, t0, t1, FEE_TIERS);
+      for (const p of pools) {
+        discovered.push({ token0: t0, token1: t1, fee: p.fee, poolAddress: p.poolAddress });
+      }
+    }
+
+    // Map discovered pools into our UniswapPool shape and update map
+    discovered.forEach((p, idx) => {
+      const id = `dyn-pool-${idx}`;
+      const poolObj = {
+        id,
+        pair: [tokenMap.get(p.token0.symbol.toLowerCase())!, tokenMap.get(p.token1.symbol.toLowerCase())!],
+        protocolVersion: 'v3',
+        feeTier: p.fee / 10000,
+        tvl: 0,
+        tvlChange: 0,
+        poolApr: 0,
+        volume1d: 0,
+        volume1dChange: 0,
+        f: p.fee / 10000,
+        fees1d: 0,
+        poolAddress: p.poolAddress,
+        poolBalances: [],
+        historicalData: [],
+      };
+      uniswapPoolMap.set(id, poolObj as any);
+    });
+
+    dynamicPoolsInitialized = true;
+    return Array.from(uniswapPoolMap.values());
+  } catch (e) {
+    console.warn('Failed to refresh Uniswap pools dynamically:', e);
+    return Array.from(uniswapPoolMap.values());
+  }
+}
+
+// Kick off an async refresh so the app can show live pools when available
+refreshUniswapPools().catch(() => {});

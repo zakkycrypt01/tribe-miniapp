@@ -389,7 +389,14 @@ export default function NewPositionPage() {
             }
             // Store detected fee and pool address for the session
             setDetectedFee(info.fee);
-            setPoolAddress(info.poolAddress);
+            // If user already selected a fee, prefer that pool if available
+            const preferred = availableFeePools.find(p => p.fee === (selectedFee ?? info.fee));
+            if (preferred) {
+                setPoolAddress(preferred.poolAddress);
+                setDetectedFee(preferred.fee);
+            } else {
+                setPoolAddress(info.poolAddress);
+            }
         } catch (e) {
             setPreflightError('Pool does not exist for selected tokens/fee');
             return false;
