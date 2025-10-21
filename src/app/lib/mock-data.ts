@@ -210,97 +210,8 @@ const ACTION_HISTORY: { [leaderId: string]: ActionHistoryItem[] } = {
   ],
 };
 
-const UNISWAP_POOLS: UniswapPool[] = [
-  {
-    id: 'pool-1',
-    pair: [tokenMap.get('eth')!, tokenMap.get('usdc')!],
-    protocolVersion: 'v3',
-    feeTier: 0.3,
-    tvl: 11400000,
-    tvlChange: 4.19,
-    poolApr: 3.18,
-    volume1d: 331200,
-    volume1dChange: 47.7,
-    f: 0.3,
-    fees1d: 996.42,
-    poolAddress: '0x6a775a782a5a5a1f6f5d8e9e1f5d8e9e1f5d8e9e',
-    poolBalances: [
-      { token: tokenMap.get('eth')!, amount: 1500 },
-      { token: tokenMap.get('usdc')!, amount: 3800000000 },
-    ],
-    historicalData: Array.from({ length: 24 }, (_, i) => ({
-      time: `h${i}`,
-      volume: Math.random() * 40000 + 10000,
-    })),
-  },
-  {
-    id: 'pool-2',
-    pair: [tokenMap.get('eth')!, tokenMap.get('uni')!],
-    protocolVersion: 'v3',
-    feeTier: 0.3,
-    tvl: 10400000,
-    tvlChange: -2.3,
-    poolApr: 13.73,
-    volume1d: 1300000,
-    volume1dChange: -12.5,
-    f: 0.3,
-    fees1d: 3900,
-    poolAddress: '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640',
-    poolBalances: [
-      { token: tokenMap.get('eth')!, amount: 1800 },
-      { token: tokenMap.get('usdc')!, amount: 5400000 },
-    ],
-    historicalData: Array.from({ length: 24 }, (_, i) => ({
-      time: `h${i}`,
-      volume: Math.random() * 80000 + 20000,
-    })),
-  },
-   {
-    id: 'pool-3',
-    pair: [tokenMap.get('usdc')!, tokenMap.get('wbtc')!], // Mocking USSI as USDC
-    protocolVersion: 'v3',
-    feeTier: 0.3,
-    tvl: 6000000,
-    tvlChange: 0.1,
-    poolApr: 0.00,
-    volume1d: 60,
-    volume1dChange: 5.2,
-    f: 0.3,
-    fees1d: 0.18,
-    poolAddress: '0x12345a782a5a5a1f6f5d8e9e1f5d8e9e1f5d8e9e',
-    poolBalances: [
-      { token: tokenMap.get('uni')!, amount: 3000000 },
-      { token: tokenMap.get('usdc')!, amount: 3000000 },
-    ],
-    historicalData: Array.from({ length: 24 }, (_, i) => ({
-      time: `h${i}`,
-      volume: Math.random() * 10,
-    })),
-  },
-  {
-    id: 'pool-4',
-    pair: [tokenMap.get('eth')!, tokenMap.get('wbtc')!],
-    protocolVersion: 'v3',
-    feeTier: 1,
-    tvl: 3500000,
-    tvlChange: 15.6,
-    poolApr: 5.37,
-    volume1d: 52100,
-    volume1dChange: 88.1,
-    f: 1,
-    fees1d: 521,
-    poolAddress: '0xabcde6a782a5a5a1f6f5d8e9e1f5d8e9e1f5d8e9e',
-    poolBalances: [
-      { token: tokenMap.get('eth')!, amount: 500 },
-      { token: tokenMap.get('wbtc')!, amount: 1500000 },
-    ],
-    historicalData: Array.from({ length: 24 }, (_, i) => ({
-      time: `h${i}`,
-      volume: Math.random() * 10000 + 2000,
-    })),
-  },
-];
-const uniswapPoolMap = new Map(UNISWAP_POOLS.map(p => [p.id, p]));
+// Start with an empty pool map; it will be populated by refreshUniswapPools()
+const uniswapPoolMap = new Map<string, UniswapPool>();
 
 const POOL_TRANSACTIONS: PoolTransaction[] = Array.from({ length: 20 }, (_, i) => {
     const isSwap = i % 3 !== 0;
@@ -350,7 +261,8 @@ export function getTokens() {
 }
 
 export function getUniswapPools() {
-    return UNISWAP_POOLS;
+  // Return currently-known pools (may be empty until refresh completes)
+  return Array.from(uniswapPoolMap.values());
 }
 
 export function getUniswapPoolData(id: string) {
