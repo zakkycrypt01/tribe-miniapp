@@ -262,11 +262,23 @@ export function getTokens() {
 
 export function getUniswapPools() {
   // Return currently-known pools (may be empty until refresh completes)
-  return Array.from(uniswapPoolMap.values());
+  // Deduplicate values because we may store the same pool under multiple keys
+  const vals = Array.from(uniswapPoolMap.values());
+  const unique = new Map<string, UniswapPool>();
+  for (const p of vals) {
+    const key = (p.poolAddress || p.id || '').toLowerCase();
+    if (!unique.has(key)) unique.set(key, p);
+  }
+  return Array.from(unique.values());
 }
 
 export function getUniswapPoolData(id: string) {
-    return uniswapPoolMap.get(id);
+    if (!id) return undefined;
+    // try exact match first (handles checksummed addresses or dyn ids)
+    const direct = uniswapPoolMap.get(id);
+    if (direct) return direct;
+    // fallback to lowercase match
+    return uniswapPoolMap.get(id.toLowerCase());
 }
 
 export function getPoolTransactions() {
@@ -296,8 +308,11 @@ export async function refreshUniswapPools() {
     }
 
     // Map discovered pools into our UniswapPool shape and update map
-    discovered.forEach((p, idx) => {
-      const id = `dyn-pool-${idx}`;
+    discovered.forEach((p) => {
+      const address = p.poolAddress || '';
+      const addressKey = address.toLowerCase();
+      // Prefer the original address as the pool's id when available
+      const id = address || `dyn-pool-${Math.random().toString(36).slice(2, 9)}`;
       const poolObj = {
         id,
         pair: [tokenMap.get(p.token0.symbol.toLowerCase())!, tokenMap.get(p.token1.symbol.toLowerCase())!],
@@ -314,7 +329,11 @@ export async function refreshUniswapPools() {
         poolBalances: [],
         historicalData: [],
       };
+      // store under both the original address and the lowercase key for robust lookups
       uniswapPoolMap.set(id, poolObj as any);
+      if (addressKey && addressKey !== id) {
+        uniswapPoolMap.set(addressKey, poolObj as any);
+      }
     });
 
     dynamicPoolsInitialized = true;
