@@ -160,11 +160,12 @@ export default function NewPositionPage() {
         const tickLower: -887220 = -887220;
         const tickUpper: 887220 = 887220;
 
+        // Approve the Nonfungible Position Manager (match the solidity script)
         const approve0Hash = await writeContract(wagmiConfig, {
             abi: erc20Abi,
             address: token0,
             functionName: 'approve',
-            args: [CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`, amount0Desired],
+            args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, amount0Desired],
             account: address,
         });
         await waitForTransactionReceipt(wagmiConfig, { hash: approve0Hash });
@@ -173,27 +174,67 @@ export default function NewPositionPage() {
             abi: erc20Abi,
             address: token1,
             functionName: 'approve',
-            args: [CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`, amount1Desired],
+            args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, amount1Desired],
             account: address,
         });
         await waitForTransactionReceipt(wagmiConfig, { hash: approve1Hash });
 
+        // Build mint params and call the NonfungiblePositionManager directly (like the solidity script)
+        const NONFUNGIBLE_POSITION_MANAGER_ABI = [
+            {
+                inputs: [
+                    {
+                        components: [
+                            { internalType: 'address', name: 'token0', type: 'address' },
+                            { internalType: 'address', name: 'token1', type: 'address' },
+                            { internalType: 'uint24', name: 'fee', type: 'uint24' },
+                            { internalType: 'int24', name: 'tickLower', type: 'int24' },
+                            { internalType: 'int24', name: 'tickUpper', type: 'int24' },
+                            { internalType: 'uint256', name: 'amount0Desired', type: 'uint256' },
+                            { internalType: 'uint256', name: 'amount1Desired', type: 'uint256' },
+                            { internalType: 'uint256', name: 'amount0Min', type: 'uint256' },
+                            { internalType: 'uint256', name: 'amount1Min', type: 'uint256' },
+                            { internalType: 'address', name: 'recipient', type: 'address' },
+                            { internalType: 'uint256', name: 'deadline', type: 'uint256' },
+                        ],
+                        internalType: 'struct INonfungiblePositionManager.MintParams',
+                        name: 'params',
+                        type: 'tuple',
+                    },
+                ],
+                name: 'mint',
+                outputs: [
+                    { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
+                    { internalType: 'uint128', name: 'liquidity', type: 'uint128' },
+                    { internalType: 'uint256', name: 'amount0', type: 'uint256' },
+                    { internalType: 'uint256', name: 'amount1', type: 'uint256' },
+                ],
+                stateMutability: 'payable',
+                type: 'function',
+            },
+        ];
+
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes
+
+        const mintParams = {
+            token0: token0 as `0x${string}`,
+            token1: token1 as `0x${string}`,
+            fee,
+            tickLower,
+            tickUpper,
+            amount0Desired,
+            amount1Desired,
+            amount0Min: 0n,
+            amount1Min: 0n,
+            recipient: address as `0x${string}`,
+            deadline,
+        };
+
         const txHash = await writeContract(wagmiConfig, {
-            abi: ABIS.TribeUniswapV3Adapter,
-            address: CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`,
-            functionName: 'mintPosition',
-            args: [
-                token0,
-                token1,
-                fee,
-                tickLower,
-                tickUpper,
-                amount0Desired,
-                amount1Desired,
-                0n,
-                0n,
-                address,
-            ],
+            abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
+            address: NONFUNGIBLE_POSITION_MANAGER as `0x${string}`,
+            functionName: 'mint',
+            args: [mintParams],
             account: address,
         });
         const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash });
@@ -337,25 +378,6 @@ export default function NewPositionPage() {
                 return;
             }
         }
-
-        // Fallback: set some basic mock market prices for demo pairs
-        if ((token1Symbol === 'USDC' && (token2Symbol === 'ETH' || token2Symbol === 'WETH')) || (token2Symbol === 'USDC' && (token1Symbol === 'ETH' || token1Symbol === 'WETH'))) {
-            // 1 USDC = 0.00026 ETH roughly (example) — but our UI shows token2 per token1; ensure consistent
-            if (token1Symbol === 'USDC') setMarketPrice(0.00026);
-            else setMarketPrice(3847.39); // ETH per USDC in display usage
-            return;
-        }
-
-        if (token1Symbol === 'USDC' && token2Symbol === 'WBTC') {
-            setMarketPrice(0.00000012); // demo placeholder
-            return;
-        }
-
-        if (token1Symbol === 'ETH' && token2Symbol === 'UNI') {
-            setMarketPrice(1000); // demo placeholder
-            return;
-        }
-
         setMarketPrice(null);
     }, [token1Symbol, token2Symbol, calculatedPosition]);
 
