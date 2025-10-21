@@ -384,7 +384,7 @@ export default function NewPositionPage() {
             const tokenB = (token2Symbol === 'USDC' ? USDC_TOKEN : (token2Symbol === 'WETH' ? WETH_TOKEN : token2Symbol === 'WBTC' ? WBTC_TOKEN : UNI_TOKEN));
             const info = await findPoolForPair(publicClient, tokenA, tokenB, FEE_TIERS);
             if (!info) {
-                setPreflightError('Pool does not exist for selected tokens at common fee tiers');
+                setPreflightError(`Pool does not exist for selected tokens at fee tiers: ${FEE_TIERS.map(f => (f/10000).toFixed(2)+'%').join(', ')}`);
                 return false;
             }
             // Store detected fee and pool address for the session

@@ -237,17 +237,21 @@ async function computeTicksFromPrices(
   const PRECISION = 1_000_000_000_000n; // 1e12 precision
 
   const minNumerator = JSBI.BigInt(Math.max(1, Math.floor(minPrice * Number(PRECISION))));
-  const maxNumerator = JSBI.BigInt(Math.max(1, Math.floor(maxPrice * Number(PRECISION))));
   const denom = JSBI.BigInt(Number(PRECISION));
-
   const sqrtMin = encodeSqrtRatioX96(minNumerator as any, denom as any);
-  const sqrtMax = encodeSqrtRatioX96(maxNumerator as any, denom as any);
-
   const lowerTickCandidate = TickMath.getTickAtSqrtRatio(sqrtMin);
-  const upperTickCandidate = TickMath.getTickAtSqrtRatio(sqrtMax);
-
   const tickLower = nearestUsableTick(Number(lowerTickCandidate), tickSpacing);
-  const tickUpper = nearestUsableTick(Number(upperTickCandidate), tickSpacing);
+
+  // Handle Infinity for maxPrice
+  let tickUpper: number;
+  if (maxPrice === Infinity) {
+    tickUpper = 887220; // Uniswap v3 max tick
+  } else {
+    const maxNumerator = JSBI.BigInt(Math.max(1, Math.floor(maxPrice * Number(PRECISION))));
+    const sqrtMax = encodeSqrtRatioX96(maxNumerator as any, denom as any);
+    const upperTickCandidate = TickMath.getTickAtSqrtRatio(sqrtMax);
+    tickUpper = nearestUsableTick(Number(upperTickCandidate), tickSpacing);
+  }
 
   return { tickLower, tickUpper };
 }
