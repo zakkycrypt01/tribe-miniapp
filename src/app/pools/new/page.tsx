@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
 import { useAccount, usePublicClient } from "wagmi";
 import { writeContract, waitForTransactionReceipt } from "wagmi/actions";
-import { erc20Abi, parseUnits } from "viem";
+import { erc20Abi, parseUnits, formatUnits } from "viem";
 import { config as wagmiConfig } from "@/components/providers/WagmiProvider";
 import {
     calculateLiquidityPosition,
@@ -73,7 +73,7 @@ const TokenSelector = ({ tokens, value, onChange }: { tokens: Token[], value?: s
     )
 }
 
-const AmountInput = ({ token, value, onChange, marketPrice, otherSymbol, isBase, onFocus }: { token: Token, value: string, onChange: (value: string) => void, marketPrice?: number | null, otherSymbol?: string, isBase?: boolean, onFocus?: () => void }) => {
+const AmountInput = ({ token, value, onChange, marketPrice, otherSymbol, isBase, onFocus, balance }: { token: Token, value: string, onChange: (value: string) => void, marketPrice?: number | null, otherSymbol?: string, isBase?: boolean, onFocus?: () => void, balance?: string | null }) => {
     // marketPrice is expressed as otherSymbol per base token (token2 per token1)
     let convertedLabel = '—';
     const n = Number(value);
@@ -105,7 +105,7 @@ const AmountInput = ({ token, value, onChange, marketPrice, otherSymbol, isBase,
             </div>
             <div className="flex justify-between items-center text-xs text-muted-foreground">
                 <span>{convertedLabel}</span>
-                <span>Balance: —</span>
+                <span>Balance: {balance ?? '—'}</span>
             </div>
         </div>
     )
@@ -167,6 +167,8 @@ export default function NewPositionPage() {
     const publicClient = usePublicClient();
 
     const [preflightError, setPreflightError] = useState<string | null>(null);
+    const [balance1, setBalance1] = useState<string | null>(null);
+    const [balance2, setBalance2] = useState<string | null>(null);
 
     const createUniswapV3Position = async () => {
         if (!address) throw new Error('Wallet not connected');
@@ -462,6 +464,47 @@ export default function NewPositionPage() {
             setCreationStep('review');
         }
     }
+
+    // Fetch token balances for the selected tokens
+    useEffect(() => {
+        let cancelled = false;
+        const fetchBalances = async () => {
+            if (!publicClient || !address) {
+                setBalance1(null);
+                setBalance2(null);
+                return;
+            }
+
+            try {
+                const t1 = mapBySymbol(token1Symbol);
+                const t2 = mapBySymbol(token2Symbol);
+                if (!t1 || !t2) {
+                    setBalance1(null);
+                    setBalance2(null);
+                    return;
+                }
+
+                const [raw1, raw2] = await Promise.all([
+                    publicClient.readContract({ address: t1.address as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] }),
+                    publicClient.readContract({ address: t2.address as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] }),
+                ]);
+
+                if (cancelled) return;
+
+                // publicClient.readContract for balanceOf returns a bigint-like value
+                setBalance1(formatUnits(raw1 as bigint, t1.decimals));
+                setBalance2(formatUnits(raw2 as bigint, t2.decimals));
+            } catch (e) {
+                console.warn('Failed to fetch balances', e);
+                setBalance1(null);
+                setBalance2(null);
+            }
+        };
+
+        fetchBalances();
+
+        return () => { cancelled = true; };
+    }, [publicClient, address, token1Symbol, token2Symbol]);
 
     const runPreflightChecks = async (): Promise<boolean> => {
         if (!address) {
@@ -971,8 +1014,8 @@ export default function NewPositionPage() {
                                                     <CardDescription>Specify the token amounts for your liquidity contribution.</CardDescription>
                                                 </CardHeader>
                                                 <CardContent className="space-y-4">
-                                                    <AmountInput token={token1} value={amount1} onChange={handleAmount1Change} onFocus={() => setLastEdited('amount1')} marketPrice={marketPrice} otherSymbol={token2.symbol} isBase={true} />
-                                                    <AmountInput token={token2} value={amount2} onChange={handleAmount2Change} onFocus={() => setLastEdited('amount2')} marketPrice={marketPrice} otherSymbol={token1.symbol} isBase={false} />
+                                                    <AmountInput token={token1} value={amount1} onChange={handleAmount1Change} onFocus={() => setLastEdited('amount1')} marketPrice={marketPrice} otherSymbol={token2.symbol} isBase={true} balance={balance1} />
+                                                    <AmountInput token={token2} value={amount2} onChange={handleAmount2Change} onFocus={() => setLastEdited('amount2')} marketPrice={marketPrice} otherSymbol={token1.symbol} isBase={false} balance={balance2} />
 
                                                     <Button size="lg" className="w-full h-12 text-base" disabled={!amount1 || !amount2} onClick={() => setShowReviewDialog(true)}>
                                                         {!amount1 || !amount2 ? "Enter an amount" : "Review"}
