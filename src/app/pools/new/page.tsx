@@ -125,6 +125,8 @@ export default function NewPositionPage() {
     const [showReviewDialog, setShowReviewDialog] = useState(false);
     const [calculatedPosition, setCalculatedPosition] = useState<any | null>(null);
     const [isCalculating, setIsCalculating] = useState(false);
+    const [marketPrice, setMarketPrice] = useState<number | null>(null);
+    const [isFetchingMarketPrice, setIsFetchingMarketPrice] = useState(false);
     const [creationStep, setCreationStep] = useState<CreationStep>('review');
     const [minPrice, setMinPrice] = useState(0);
     const [maxPrice, setMaxPrice] = useState<number | 'Infinity'>('Infinity');
@@ -196,6 +198,37 @@ export default function NewPositionPage() {
         });
         const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash });
         return receipt;
+    };
+
+    // Auto-convert handlers
+    const formatDisplayAmount = (amt: number, decimals: number) => {
+        if (!isFinite(amt) || isNaN(amt)) return '';
+        const displayDigits = decimals <= 6 ? 2 : 6;
+        return Number(amt.toFixed(displayDigits)).toString();
+    };
+
+    const handleAmount1Change = (value: string) => {
+        setAmount1(value);
+        const n = Number(value);
+        if (!marketPrice || !isFinite(n) || isNaN(n)) {
+            setAmount2('');
+            return;
+        }
+        const dec2 = TOKEN_DECIMALS[token2Symbol] ?? 18;
+        const converted = n * marketPrice;
+        setAmount2(formatDisplayAmount(converted, dec2));
+    };
+
+    const handleAmount2Change = (value: string) => {
+        setAmount2(value);
+        const n = Number(value);
+        if (!marketPrice || !isFinite(n) || isNaN(n) || marketPrice === 0) {
+            setAmount1('');
+            return;
+        }
+        const dec1 = TOKEN_DECIMALS[token1Symbol] ?? 18;
+        const converted = n / marketPrice;
+        setAmount1(formatDisplayAmount(converted, dec1));
     };
 
     const handleCreate = async () => {
@@ -294,6 +327,21 @@ export default function NewPositionPage() {
         runCalc();
     }, [showReviewDialog, token1Symbol, token2Symbol, amount1, amount2]);
 
+    // Update market price when tokens or calculated position changes
+    useEffect(() => {
+        // If we have a calculated position, try to use its currentPrice
+        if (calculatedPosition && calculatedPosition.currentPrice) {
+            const parsed = Number(calculatedPosition.currentPrice);
+            if (!isNaN(parsed)) {
+                setMarketPrice(parsed);
+                return;
+            }
+        }
+
+        // If no calculated price available, mark as unavailable
+        setMarketPrice(null);
+    }, [token1Symbol, token2Symbol, calculatedPosition]);
+
 
     return (
         <>
@@ -305,9 +353,9 @@ export default function NewPositionPage() {
                     
                     <div className="flex justify-between items-center mb-6">
                         <h1 className="text-3xl font-bold">New position</h1>
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm">Reset</Button>
-                            <Select defaultValue="v3">
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm">Reset</Button>
+                                <Select defaultValue="v3">
                                 <SelectTrigger className="w-[120px] h-9 text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -315,8 +363,8 @@ export default function NewPositionPage() {
                                     <SelectItem value="v2">v2 position</SelectItem>
                                     <SelectItem value="v3">v3 position</SelectItem>
                                 </SelectContent>
-                            </Select>
-                            <Button variant="ghost" size="icon"><Settings className="size-5" /></Button>
+                                </Select>
+                               <Button variant="ghost" size="icon"><Settings className="size-5" /></Button>
                         </div>
                     </div>
 
@@ -354,7 +402,7 @@ export default function NewPositionPage() {
                                                     <h3 className="font-semibold mb-1">Fee tier</h3>
                                                     <p className="text-sm text-muted-foreground">The amount earned providing liquidity. All v2 pools have fixed 0.3% fees. For more options, provide liquidity on v3.</p>
                                                 </div>
-                                                <Button size="lg" className="w-full h-12 text-base" onClick={() => setCurrentStep(2)}>Continue</Button>
+                                                <Button size="lg" className="w-full h-12 text-base" onClick={() => setCurrentStep(2)} disabled={marketPrice === null}>Continue</Button>
                                             </CardContent>
                                         </Card>
                                     )}
@@ -369,7 +417,8 @@ export default function NewPositionPage() {
                                                         </div>
                                                         <div>
                                                             <p className="font-bold text-lg">{token1.symbol} / {token2.symbol}</p>
-                                                            <p className="text-xs text-muted-foreground">Market price: 0.00006 WETH = 1 USDC ($1.64)</p>
+                                                            <p className="text-xs text-muted-foreground">Market price: {marketPrice ? `${marketPrice} ${token2.symbol} per ${token1.symbol}` : '—'}</p>
+                                                                <p className="text-xs text-muted-foreground">Market price: {marketPrice ? `${marketPrice} ${token2.symbol} per ${token1.symbol}` : 'Not available'}</p>
                                                         </div>
                                                         <Badge variant="secondary">v3</Badge>
                                                         <Badge variant="secondary">0.3%</Badge>
@@ -420,8 +469,8 @@ export default function NewPositionPage() {
                                                     <CardDescription>Specify the token amounts for your liquidity contribution.</CardDescription>
                                                 </CardHeader>
                                                 <CardContent className="space-y-4">
-                                                    <AmountInput token={token1} value={amount1} onChange={setAmount1} />
-                                                    <AmountInput token={token2} value={amount2} onChange={setAmount2} />
+                                                    <AmountInput token={token1} value={amount1} onChange={handleAmount1Change} />
+                                                    <AmountInput token={token2} value={amount2} onChange={handleAmount2Change} />
 
                                                     <Button size="lg" className="w-full h-12 text-base" disabled={!amount1 || !amount2} onClick={() => setShowReviewDialog(true)}>
                                                         {!amount1 || !amount2 ? "Enter an amount" : "Review"}
