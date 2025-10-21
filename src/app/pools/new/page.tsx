@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import { writeContract, waitForTransactionReceipt } from "wagmi/actions";
 import { erc20Abi, parseUnits } from "viem";
 import { config as wagmiConfig } from "@/components/providers/WagmiProvider";
@@ -135,6 +135,9 @@ export default function NewPositionPage() {
     const token2 = tokens.find(t => t.symbol === token2Symbol)!;
 
     const { address } = useAccount();
+    const publicClient = usePublicClient();
+
+    const [preflightError, setPreflightError] = useState<string | null>(null);
 
     const createUniswapV3Position = async () => {
         if (!address) throw new Error('Wallet not connected');
@@ -274,13 +277,92 @@ export default function NewPositionPage() {
 
     const handleCreate = async () => {
         try {
+            setPreflightError(null);
+            // Run preflight checks
+            const ok = await runPreflightChecks();
+            if (!ok) {
+                setCreationStep('review');
+                return;
+            }
+
             setCreationStep('approving');
             setCreationStep('confirming');
             await createUniswapV3Position();
             setCreationStep('complete');
         } catch (e) {
             console.error(e);
+            setPreflightError(String(e));
             setCreationStep('review');
+        }
+    }
+
+    const runPreflightChecks = async (): Promise<boolean> => {
+        if (!address) {
+            setPreflightError('Wallet not connected');
+            return false;
+        }
+
+        if (!publicClient) {
+            setPreflightError('RPC client not available');
+            return false;
+        }
+
+        const addrA = TOKEN_ADDRESSES[token1Symbol];
+        const addrB = TOKEN_ADDRESSES[token2Symbol];
+        if (!addrA || !addrB) {
+            setPreflightError('Unsupported token pair');
+            return false;
+        }
+
+        // Check pool existence
+        try {
+            await getPoolAddress(publicClient, (token1Symbol === 'USDC' ? USDC_TOKEN : (token1Symbol === 'WETH' ? WETH_TOKEN : token1Symbol === 'WBTC' ? WBTC_TOKEN : UNI_TOKEN)),
+                (token2Symbol === 'USDC' ? USDC_TOKEN : (token2Symbol === 'WETH' ? WETH_TOKEN : token2Symbol === 'WBTC' ? WBTC_TOKEN : UNI_TOKEN)),
+                3000);
+        } catch (e) {
+            setPreflightError('Pool does not exist for selected tokens/fee');
+            return false;
+        }
+
+        // Check balances and allowances
+        try {
+            const decA = TOKEN_DECIMALS[token1Symbol] ?? 18;
+            const decB = TOKEN_DECIMALS[token2Symbol] ?? 18;
+
+            const wantA = parseUnits(amount1 || '0', decA);
+            const wantB = parseUnits(amount2 || '0', decB);
+
+            // Read balances
+            const balanceA = await publicClient.readContract({ address: addrA as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] });
+            const balanceB = await publicClient.readContract({ address: addrB as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] });
+
+            if (BigInt(balanceA) < wantA) {
+                setPreflightError('Insufficient balance for token0');
+                return false;
+            }
+            if (BigInt(balanceB) < wantB) {
+                setPreflightError('Insufficient balance for token1');
+                return false;
+            }
+
+            // Check allowances to position manager
+            const allowanceA = await publicClient.readContract({ address: addrA as `0x${string}`, abi: erc20Abi, functionName: 'allowance', args: [address as `0x${string}`, NONFUNGIBLE_POSITION_MANAGER as `0x${string}`] });
+            const allowanceB = await publicClient.readContract({ address: addrB as `0x${string}`, abi: erc20Abi, functionName: 'allowance', args: [address as `0x${string}`, NONFUNGIBLE_POSITION_MANAGER as `0x${string}`] });
+
+            if (BigInt(allowanceA) < wantA) {
+                setPreflightError('Insufficient allowance for token0; please approve');
+                return false;
+            }
+            if (BigInt(allowanceB) < wantB) {
+                setPreflightError('Insufficient allowance for token1; please approve');
+                return false;
+            }
+
+            return true;
+        } catch (e) {
+            console.error('Preflight check failed', e);
+            setPreflightError('Preflight error: ' + String(e));
+            return false;
         }
     }
     
