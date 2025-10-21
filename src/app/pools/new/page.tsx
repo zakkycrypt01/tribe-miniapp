@@ -144,6 +144,8 @@ export default function NewPositionPage() {
     const [calculatedPosition, setCalculatedPosition] = useState<any | null>(null);
     const [isCalculating, setIsCalculating] = useState(false);
     const [marketPrice, setMarketPrice] = useState<number | null>(null);
+    const [effectiveMarketPrice, setEffectiveMarketPrice] = useState<number | null>(null);
+    const [marketPriceInverted, setMarketPriceInverted] = useState(false);
     const [isFetchingMarketPrice, setIsFetchingMarketPrice] = useState(false);
     const [poolAddress, setPoolAddress] = useState<string | null>(null);
     const [isFetchingPoolAddress, setIsFetchingPoolAddress] = useState(false);
@@ -328,7 +330,7 @@ export default function NewPositionPage() {
         setAmount2(value);
     };
 
-    // Centralized conversion effect to avoid flip-flopping between inputs
+    // Debounced conversion effect with inversion heuristic
     useEffect(() => {
         if (!marketPrice) return;
 
@@ -337,38 +339,107 @@ export default function NewPositionPage() {
         const decA = tokenAObj?.decimals ?? 18;
         const decB = tokenBObj?.decimals ?? 18;
 
-        try {
-            if (lastEdited === 'amount1') {
-                const n = Number(amount1);
-                if (!isNaN(n) && isFinite(n) && amount1 !== '') {
-                    const converted = n * marketPrice;
-                    setAmount2(formatDisplayAmount(converted, decB));
-                }
-            } else if (lastEdited === 'amount2') {
-                const n = Number(amount2);
-                if (!isNaN(n) && isFinite(n) && marketPrice !== 0 && amount2 !== '') {
-                    const converted = Number(amount2) / marketPrice;
-                    setAmount1(formatDisplayAmount(converted, decA));
-                }
-            } else {
-                // no explicit lastEdited: fill empty side
-                if (amount1 && !amount2) {
+        let cancelled = false;
+        const timer = setTimeout(() => {
+            if (cancelled) return;
+
+            const THRESHOLD = 1e8; // arbitrary threshold to detect absurd conversions
+            let effective = marketPrice;
+            let inverted = false;
+
+            const testBaseToQuote = (amt: number, p: number | null) => (p ? convertBaseToQuote(amt, p) : NaN);
+            const testQuoteToBase = (amt: number, p: number | null) => (p ? convertQuoteToBase(amt, p) : NaN);
+
+            try {
+                if (lastEdited === 'amount1' && amount1 !== '') {
                     const n = Number(amount1);
-                    if (!isNaN(n) && isFinite(n)) {
-                        const converted = n * marketPrice;
+                    const cand = testBaseToQuote(n, marketPrice);
+                    if (isFinite(cand) && Math.abs(cand) > THRESHOLD) {
+                        const inv = marketPrice === 0 ? null : 1 / marketPrice;
+                        const cand2 = testBaseToQuote(n, inv);
+                        if (isFinite(cand2) && Math.abs(cand2) < Math.abs(cand)) {
+                            effective = inv as number;
+                            inverted = true;
+                        }
+                    }
+                } else if (lastEdited === 'amount2' && amount2 !== '') {
+                    const n = Number(amount2);
+                    const cand = testQuoteToBase(n, marketPrice);
+                    if (isFinite(cand) && Math.abs(cand) > THRESHOLD) {
+                        const inv = marketPrice === 0 ? null : 1 / marketPrice;
+                        const cand2 = testQuoteToBase(n, inv);
+                        if (isFinite(cand2) && Math.abs(cand2) < Math.abs(cand)) {
+                            effective = inv as number;
+                            inverted = true;
+                        }
+                    }
+                } else {
+                    if (amount1 && !amount2) {
+                        const n = Number(amount1);
+                        const cand = testBaseToQuote(n, marketPrice);
+                        if (isFinite(cand) && Math.abs(cand) > THRESHOLD) {
+                            const inv = marketPrice === 0 ? null : 1 / marketPrice;
+                            const cand2 = testBaseToQuote(n, inv);
+                            if (isFinite(cand2) && Math.abs(cand2) < Math.abs(cand)) {
+                                effective = inv as number;
+                                inverted = true;
+                            }
+                        }
+                    } else if (amount2 && !amount1) {
+                        const n = Number(amount2);
+                        const cand = testQuoteToBase(n, marketPrice);
+                        if (isFinite(cand) && Math.abs(cand) > THRESHOLD) {
+                            const inv = marketPrice === 0 ? null : 1 / marketPrice;
+                            const cand2 = testQuoteToBase(n, inv);
+                            if (isFinite(cand2) && Math.abs(cand2) < Math.abs(cand)) {
+                                effective = inv as number;
+                                inverted = true;
+                            }
+                        }
+                    }
+                }
+
+                // perform conversion with effective price
+                if (lastEdited === 'amount1') {
+                    const n = Number(amount1);
+                    if (!isNaN(n) && isFinite(n) && amount1 !== '' && effective) {
+                        const converted = convertBaseToQuote(n, effective);
                         setAmount2(formatDisplayAmount(converted, decB));
                     }
-                } else if (amount2 && !amount1) {
+                } else if (lastEdited === 'amount2') {
                     const n = Number(amount2);
-                    if (!isNaN(n) && isFinite(n) && marketPrice !== 0) {
-                        const converted = Number(amount2) / marketPrice;
+                    if (!isNaN(n) && isFinite(n) && amount2 !== '' && effective) {
+                        const converted = convertQuoteToBase(Number(amount2), effective);
                         setAmount1(formatDisplayAmount(converted, decA));
                     }
+                } else {
+                    if (amount1 && !amount2 && effective) {
+                        const n = Number(amount1);
+                        if (!isNaN(n) && isFinite(n)) {
+                            const converted = convertBaseToQuote(n, effective);
+                            setAmount2(formatDisplayAmount(converted, decB));
+                        }
+                    } else if (amount2 && !amount1 && effective) {
+                        const n = Number(amount2);
+                        if (!isNaN(n) && isFinite(n)) {
+                            const converted = convertQuoteToBase(Number(amount2), effective);
+                            setAmount1(formatDisplayAmount(converted, decA));
+                        }
+                    }
                 }
+
+                setEffectiveMarketPrice(effective ?? null);
+                setMarketPriceInverted(inverted);
+                if (inverted) console.warn('Conversion used reciprocal market price due to heuristic');
+            } catch (e) {
+                console.warn('Debounced conversion error', e);
             }
-        } catch (e) {
-            console.warn('Conversion effect error', e);
-        }
+        }, 200);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
     }, [marketPrice, amount1, amount2, token1Symbol, token2Symbol, lastEdited]);
 
     const handleCreate = async () => {
@@ -831,6 +902,9 @@ export default function NewPositionPage() {
                                                         <div>
                                                             <p className="font-bold text-lg">{token1.symbol} / {token2.symbol}</p>
                                                             <p className="text-xs text-muted-foreground">Market price: {marketPrice ? `${marketPrice} ${token2.symbol} per ${token1.symbol}` : '—'}</p>
+                                                            {effectiveMarketPrice && (
+                                                                <p className="text-xs text-muted-foreground">Effective price: {effectiveMarketPrice} {token2.symbol} per {token1.symbol} {marketPriceInverted ? '(inverted)' : ''}</p>
+                                                            )}
                                                             {isFetchingPoolAddress ? (
                                                                 <p className="text-xs text-muted-foreground">Pool: fetching...</p>
                                                             ) : poolAddress ? (
