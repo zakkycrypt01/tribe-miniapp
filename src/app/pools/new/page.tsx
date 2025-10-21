@@ -26,6 +26,10 @@ import {
     getMintParams,
     calculateOptimalAmounts,
     getPoolAddress,
+    findPoolForPair,
+    FEE_TIERS,
+    findAllPoolsForPair,
+    computeTicksFromPrices,
     USDC_TOKEN,
     WETH_TOKEN,
     WBTC_TOKEN,
@@ -129,6 +133,13 @@ export default function NewPositionPage() {
     const [isFetchingMarketPrice, setIsFetchingMarketPrice] = useState(false);
     const [poolAddress, setPoolAddress] = useState<string | null>(null);
     const [isFetchingPoolAddress, setIsFetchingPoolAddress] = useState(false);
+    const [detectedFee, setDetectedFee] = useState<number | null>(null);
+    const [availableFeePools, setAvailableFeePools] = useState<Array<{ fee: number; poolAddress: string }>>([]);
+    const [selectedFee, setSelectedFee] = useState<number | null>(null);
+    const [computedTickLower, setComputedTickLower] = useState<number | null>(null);
+    const [computedTickUpper, setComputedTickUpper] = useState<number | null>(null);
+
+    const feeToUse = selectedFee ?? detectedFee ?? 3000;
     const [creationStep, setCreationStep] = useState<CreationStep>('review');
     const [minPrice, setMinPrice] = useState(0);
     const [maxPrice, setMaxPrice] = useState<number | 'Infinity'>('Infinity');
@@ -188,7 +199,7 @@ export default function NewPositionPage() {
                     const optimal = await calculateOptimalAmounts(
                         tokenInObj,
                         tokenOutObj,
-                        3000,
+                        feeToUse,
                         amountIn
                     );
 
@@ -210,10 +221,11 @@ export default function NewPositionPage() {
             }
         }
 
-        // Fee tier fixed to 0.3% for now
-        const fee: 3000 = 3000;
-        const tickLower: -887220 = -887220;
-        const tickUpper: 887220 = 887220;
+    // Fee tier auto-detected from available pools (fallback to 0.3% if not found)
+    const fee: number = feeToUse;
+    // Use computed ticks if available, otherwise fall back to full range
+    const tickLower = computedTickLower ?? -887220;
+    const tickUpper = computedTickUpper ?? 887220;
 
         // Approve the Nonfungible Position Manager (match the solidity script)
         const approve0Hash = await writeContract(wagmiConfig, {
@@ -366,11 +378,18 @@ export default function NewPositionPage() {
             return false;
         }
 
-        // Check pool existence
+        // Check pool existence across common fee tiers
         try {
-            await getPoolAddress(publicClient, (token1Symbol === 'USDC' ? USDC_TOKEN : (token1Symbol === 'WETH' ? WETH_TOKEN : token1Symbol === 'WBTC' ? WBTC_TOKEN : UNI_TOKEN)),
-                (token2Symbol === 'USDC' ? USDC_TOKEN : (token2Symbol === 'WETH' ? WETH_TOKEN : token2Symbol === 'WBTC' ? WBTC_TOKEN : UNI_TOKEN)),
-                3000);
+            const tokenA = (token1Symbol === 'USDC' ? USDC_TOKEN : (token1Symbol === 'WETH' ? WETH_TOKEN : token1Symbol === 'WBTC' ? WBTC_TOKEN : UNI_TOKEN));
+            const tokenB = (token2Symbol === 'USDC' ? USDC_TOKEN : (token2Symbol === 'WETH' ? WETH_TOKEN : token2Symbol === 'WBTC' ? WBTC_TOKEN : UNI_TOKEN));
+            const info = await findPoolForPair(publicClient, tokenA, tokenB, FEE_TIERS);
+            if (!info) {
+                setPreflightError('Pool does not exist for selected tokens at common fee tiers');
+                return false;
+            }
+            // Store detected fee and pool address for the session
+            setDetectedFee(info.fee);
+            setPoolAddress(info.poolAddress);
         } catch (e) {
             setPreflightError('Pool does not exist for selected tokens/fee');
             return false;
@@ -485,12 +504,28 @@ export default function NewPositionPage() {
 
             try {
                 setIsFetchingPoolAddress(true);
-                const addr = await getPoolAddress(publicClient, tokenA, tokenB, 3000);
+                const info = await findPoolForPair(publicClient, tokenA, tokenB, FEE_TIERS);
                 if (cancelled) return;
-                setPoolAddress(addr);
+                if (info) {
+                    setPoolAddress(info.poolAddress);
+                    setDetectedFee(info.fee);
+                    setSelectedFee(info.fee);
+                    // Try to find additional available fee pools
+                    try {
+                        const all = await findAllPoolsForPair(publicClient, tokenA, tokenB, FEE_TIERS);
+                        setAvailableFeePools(all.map(a => ({ fee: a.fee, poolAddress: a.poolAddress })));
+                    } catch (e) {
+                        setAvailableFeePools([]);
+                    }
+                } else {
+                    setPoolAddress(null);
+                    setDetectedFee(null);
+                    setAvailableFeePools([]);
+                }
             } catch (e) {
                 console.warn('Failed to fetch pool address for pair:', e);
                 setPoolAddress(null);
+                setDetectedFee(null);
             } finally {
                 setIsFetchingPoolAddress(false);
             }
@@ -534,9 +569,11 @@ export default function NewPositionPage() {
                 const params = {
                     token0: tokenA,
                     token1: tokenB,
-                    fee: 3000,
+                    fee: feeToUse,
                     amount0: amount1 || '0',
                     amount1: amount2 || '0',
+                    tickLower: computedTickLower ?? undefined,
+                    tickUpper: computedTickUpper ?? undefined,
                 };
 
                 const pos = await calculateLiquidityPosition(params);
@@ -551,6 +588,51 @@ export default function NewPositionPage() {
 
         runCalc();
     }, [showReviewDialog, token1Symbol, token2Symbol, amount1, amount2]);
+
+    // Compute ticks from min/max price when the pool/fee or price inputs change
+    useEffect(() => {
+        let cancelled = false;
+        const compute = async () => {
+            if (!publicClient) return;
+
+            const mapBySymbol = (sym: string) => {
+                if (sym === 'USDC') return USDC_TOKEN;
+                if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
+                if (sym === 'WBTC') return WBTC_TOKEN;
+                if (sym === 'UNI') return UNI_TOKEN;
+                return null;
+            };
+
+            const tokenA = mapBySymbol(token1Symbol);
+            const tokenB = mapBySymbol(token2Symbol);
+            if (!tokenA || !tokenB) {
+                setComputedTickLower(null);
+                setComputedTickUpper(null);
+                return;
+            }
+
+            try {
+                const fee = feeToUse;
+                if (!fee || minPrice <= 0 || maxPrice === 'Infinity') {
+                    setComputedTickLower(null);
+                    setComputedTickUpper(null);
+                    return;
+                }
+
+                const ticks = await computeTicksFromPrices(publicClient, tokenA, tokenB, fee, minPrice, Number(maxPrice));
+                if (cancelled) return;
+                setComputedTickLower(ticks.tickLower);
+                setComputedTickUpper(ticks.tickUpper);
+            } catch (e) {
+                console.warn('Failed to compute ticks from prices:', e);
+                setComputedTickLower(null);
+                setComputedTickUpper(null);
+            }
+        };
+
+        compute();
+        return () => { cancelled = true; };
+    }, [publicClient, token1Symbol, token2Symbol, feeToUse, minPrice, maxPrice]);
 
     // Update market price when tokens or calculated position changes
     useEffect(() => {
@@ -593,7 +675,7 @@ export default function NewPositionPage() {
                 const pos = await calculateLiquidityPosition({
                     token0: tokenA,
                     token1: tokenB,
-                    fee: 3000,
+                    fee: feeToUse,
                     amount0: '1',
                     amount1: '1',
                 });
@@ -711,7 +793,7 @@ export default function NewPositionPage() {
                                                     <h3 className="font-semibold mb-1">Fee tier</h3>
                                                     <p className="text-sm text-muted-foreground">The amount earned providing liquidity. All v2 pools have fixed 0.3% fees. For more options, provide liquidity on v3.</p>
                                                 </div>
-                                                <Button size="lg" className="w-full h-12 text-base" onClick={() => setCurrentStep(2)}>Continue</Button>
+                                                <Button size="lg" className="w-full h-12 text-base" onClick={() => setCurrentStep(2)} disabled={!poolAddress}>Continue</Button>
                                             </CardContent>
                                         </Card>
                                     )}
@@ -727,16 +809,25 @@ export default function NewPositionPage() {
                                                         <div>
                                                             <p className="font-bold text-lg">{token1.symbol} / {token2.symbol}</p>
                                                             <p className="text-xs text-muted-foreground">Market price: {marketPrice ? `${marketPrice} ${token2.symbol} per ${token1.symbol}` : '—'}</p>
-                                                                {isFetchingPoolAddress ? (
-                                                                    <p className="text-xs text-muted-foreground">Pool: fetching...</p>
-                                                                ) : poolAddress ? (
-                                                                    <p className="text-xs text-muted-foreground">Pool: {poolAddress}</p>
-                                                                ) : (
-                                                                    <p className="text-xs text-muted-foreground">Pool: —</p>
-                                                                )}
+                                                            {isFetchingPoolAddress ? (
+                                                                <p className="text-xs text-muted-foreground">Pool: fetching...</p>
+                                                            ) : poolAddress ? (
+                                                                <>
+                                                                    <p className="text-xs text-muted-foreground">Pool: {poolAddress} • Fee: {feeToUse / 10000}%</p>
+                                                                    {availableFeePools.length > 1 && (
+                                                                        <div className="flex items-center gap-2 mt-1">
+                                                                            {availableFeePools.map(a => (
+                                                                                <Button key={a.fee} variant={a.fee === feeToUse ? 'secondary' : 'ghost'} size="sm" onClick={() => { setSelectedFee(a.fee); setPoolAddress(a.poolAddress); setDetectedFee(a.fee); }}>{(a.fee/10000).toFixed(2)}%</Button>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <p className="text-xs text-muted-foreground">Pool: —</p>
+                                                            )}
                                                         </div>
                                                         <Badge variant="secondary">v3</Badge>
-                                                        <Badge variant="secondary">0.3%</Badge>
+                                                        <Badge variant="secondary">{(feeToUse/10000).toFixed(2)}%</Badge>
                                                     </div>
                                                     <Button variant="ghost" size="sm" onClick={() => setCurrentStep(1)}><Edit className="mr-2 h-4 w-4"/> Edit</Button>
                                                 </CardContent>

@@ -41,6 +41,9 @@ const UNI_TOKEN = new Token(
   'Uniswap'
 );
 
+// Common Uniswap v3 fee tiers (in hundredths of a bip, i.e., 500 = 0.05%)
+const FEE_TIERS = [500, 3000, 10000];
+
 // ABIs
 const POOL_ABI = [
   {
@@ -171,6 +174,82 @@ async function getPoolAddress(
   }
 
   return poolAddress;
+}
+
+/**
+ * Find pool for a token pair by probing common fee tiers.
+ * Returns the pool address and the fee tier if found.
+ */
+async function findPoolForPair(
+  client: any,
+  token0: Token,
+  token1: Token,
+  feeTiers: number[] = [500, 3000, 10000]
+): Promise<{ poolAddress: `0x${string}`; fee: number } | null> {
+  for (const fee of feeTiers) {
+    try {
+      const poolAddress = await getPoolAddress(client, token0, token1, fee);
+      return { poolAddress, fee };
+    } catch (e) {
+      // ignore and try next
+    }
+  }
+  return null;
+}
+
+/**
+ * Find all pools for a token pair among the provided fee tiers.
+ */
+async function findAllPoolsForPair(
+  client: any,
+  token0: Token,
+  token1: Token,
+  feeTiers: number[] = FEE_TIERS
+): Promise<Array<{ fee: number; poolAddress: `0x${string}` }>> {
+  const results: Array<{ fee: number; poolAddress: `0x${string}` }> = [];
+  for (const fee of feeTiers) {
+    try {
+      const poolAddress = await getPoolAddress(client, token0, token1, fee);
+      results.push({ fee, poolAddress });
+    } catch (e) {
+      // ignore missing
+    }
+  }
+  return results;
+}
+
+/**
+ * Compute nearest usable ticks from min/max price for a given pair and fee.
+ * Prices are provided as token1 per token0 (i.e., token1/token0).
+ */
+async function computeTicksFromPrices(
+  client: any,
+  token0: Token,
+  token1: Token,
+  fee: number,
+  minPrice: number,
+  maxPrice: number
+): Promise<{ tickLower: number; tickUpper: number }> {
+  const poolAddress = await getPoolAddress(client, token0, token1, fee);
+  const { pool: poolState, tickSpacing } = await getPoolState(client, poolAddress);
+
+  // price is token1 per token0. compute sqrt ratios and then ticks
+  const PRECISION = 1_000_000_000_000n; // 1e12 precision
+
+  const minNumerator = JSBI.BigInt(Math.max(1, Math.floor(minPrice * Number(PRECISION))));
+  const maxNumerator = JSBI.BigInt(Math.max(1, Math.floor(maxPrice * Number(PRECISION))));
+  const denom = JSBI.BigInt(Number(PRECISION));
+
+  const sqrtMin = encodeSqrtRatioX96(minNumerator as any, denom as any);
+  const sqrtMax = encodeSqrtRatioX96(maxNumerator as any, denom as any);
+
+  const lowerTickCandidate = TickMath.getTickAtSqrtRatio(sqrtMin);
+  const upperTickCandidate = TickMath.getTickAtSqrtRatio(sqrtMax);
+
+  const tickLower = nearestUsableTick(Number(lowerTickCandidate), tickSpacing);
+  const tickUpper = nearestUsableTick(Number(upperTickCandidate), tickSpacing);
+
+  return { tickLower, tickUpper };
 }
 
 /**
@@ -495,6 +574,7 @@ async function main() {
 export {
   calculateLiquidityPosition,
   getMintParams,
+  findPoolForPair,
   calculateOptimalAmounts,
   getPoolAddress,
   USDC_TOKEN,
@@ -502,6 +582,9 @@ export {
   NONFUNGIBLE_POSITION_MANAGER,
   WBTC_TOKEN,
   UNI_TOKEN,
+  FEE_TIERS,
+  findAllPoolsForPair,
+  computeTicksFromPrices,
 };
 
 export type { LiquidityParams, LiquidityPosition };
