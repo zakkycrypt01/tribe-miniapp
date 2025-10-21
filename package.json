@@ -17,6 +17,7 @@
     "build:raw": "next build",
     "start": "next start",
     "lint": "next lint",
+  "test": "vitest",
     "deploy:vercel": "tsx scripts/deploy.ts",
     "deploy:raw": "vercel --prod",
     "cleanup": "node scripts/cleanup.js"
@@ -102,6 +103,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "vitest": "^1.0.0",
     "@types/inquirer": "^9.0.8",
     "@types/node": "^20",
     "@types/react": "^19",

@@ -38,6 +38,8 @@ import {
     NONFUNGIBLE_POSITION_MANAGER,
 } from "@/lib/lpcheck";
 
+import { formatDisplayAmount as _formatDisplayAmount, convertBaseToQuote, convertQuoteToBase } from '@/lib/amount-utils';
+
 
 // Token addresses/decimals will be derived from Uniswap SDK Token objects (no hardcoded maps)
 
@@ -71,7 +73,7 @@ const TokenSelector = ({ tokens, value, onChange }: { tokens: Token[], value?: s
     )
 }
 
-const AmountInput = ({ token, value, onChange, marketPrice, otherSymbol, isBase }: { token: Token, value: string, onChange: (value: string) => void, marketPrice?: number | null, otherSymbol?: string, isBase?: boolean }) => {
+const AmountInput = ({ token, value, onChange, marketPrice, otherSymbol, isBase, onFocus }: { token: Token, value: string, onChange: (value: string) => void, marketPrice?: number | null, otherSymbol?: string, isBase?: boolean, onFocus?: () => void }) => {
     // marketPrice is expressed as otherSymbol per base token (token2 per token1)
     let convertedLabel = '—';
     const n = Number(value);
@@ -93,6 +95,7 @@ const AmountInput = ({ token, value, onChange, marketPrice, otherSymbol, isBase 
                     placeholder="0"
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
+                    onFocus={() => onFocus && onFocus()}
                     className="bg-transparent text-3xl font-medium p-0 focus-visible:ring-0"
                 />
                  <div className="flex items-center gap-2">
@@ -134,6 +137,8 @@ export default function NewPositionPage() {
     const [token2Symbol, setToken2Symbol] = useState('ETH');
     const [amount1, setAmount1] = useState('');
     const [amount2, setAmount2] = useState('');
+    // track which input was last edited to avoid conversion loops
+    const [lastEdited, setLastEdited] = useState<'amount1' | 'amount2' | null>(null);
     const [rangeType, setRangeType] = useState('custom');
     const [showReviewDialog, setShowReviewDialog] = useState(false);
     const [calculatedPosition, setCalculatedPosition] = useState<any | null>(null);
@@ -311,37 +316,60 @@ export default function NewPositionPage() {
     };
 
     // Auto-convert handlers
-    const formatDisplayAmount = (amt: number, decimals: number) => {
-        if (!isFinite(amt) || isNaN(amt)) return '';
-        const displayDigits = decimals <= 6 ? 2 : 6;
-        return Number(amt.toFixed(displayDigits)).toString();
-    };
+    const formatDisplayAmount = _formatDisplayAmount;
 
     const handleAmount1Change = (value: string) => {
+        setLastEdited('amount1');
         setAmount1(value);
-        const n = Number(value);
-        if (!marketPrice || !isFinite(n) || isNaN(n)) {
-            setAmount2('');
-            return;
-        }
-        const tokenBObj = mapBySymbol(token2Symbol);
-        const dec2 = tokenBObj?.decimals ?? 18;
-        const converted = n * marketPrice;
-        setAmount2(formatDisplayAmount(converted, dec2));
     };
 
     const handleAmount2Change = (value: string) => {
+        setLastEdited('amount2');
         setAmount2(value);
-        const n = Number(value);
-        if (!marketPrice || !isFinite(n) || isNaN(n) || marketPrice === 0) {
-            setAmount1('');
-            return;
-        }
-        const tokenAObj = mapBySymbol(token1Symbol);
-        const dec1 = tokenAObj?.decimals ?? 18;
-        const converted = n / marketPrice;
-        setAmount1(formatDisplayAmount(converted, dec1));
     };
+
+    // Centralized conversion effect to avoid flip-flopping between inputs
+    useEffect(() => {
+        if (!marketPrice) return;
+
+        const tokenAObj = mapBySymbol(token1Symbol);
+        const tokenBObj = mapBySymbol(token2Symbol);
+        const decA = tokenAObj?.decimals ?? 18;
+        const decB = tokenBObj?.decimals ?? 18;
+
+        try {
+            if (lastEdited === 'amount1') {
+                const n = Number(amount1);
+                if (!isNaN(n) && isFinite(n) && amount1 !== '') {
+                    const converted = n * marketPrice;
+                    setAmount2(formatDisplayAmount(converted, decB));
+                }
+            } else if (lastEdited === 'amount2') {
+                const n = Number(amount2);
+                if (!isNaN(n) && isFinite(n) && marketPrice !== 0 && amount2 !== '') {
+                    const converted = Number(amount2) / marketPrice;
+                    setAmount1(formatDisplayAmount(converted, decA));
+                }
+            } else {
+                // no explicit lastEdited: fill empty side
+                if (amount1 && !amount2) {
+                    const n = Number(amount1);
+                    if (!isNaN(n) && isFinite(n)) {
+                        const converted = n * marketPrice;
+                        setAmount2(formatDisplayAmount(converted, decB));
+                    }
+                } else if (amount2 && !amount1) {
+                    const n = Number(amount2);
+                    if (!isNaN(n) && isFinite(n) && marketPrice !== 0) {
+                        const converted = Number(amount2) / marketPrice;
+                        setAmount1(formatDisplayAmount(converted, decA));
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Conversion effect error', e);
+        }
+    }, [marketPrice, amount1, amount2, token1Symbol, token2Symbol, lastEdited]);
 
     const handleCreate = async () => {
         try {
@@ -720,32 +748,7 @@ export default function NewPositionPage() {
         };
     }, [token1Symbol, token2Symbol]);
 
-    // If market price becomes available or tokens change, recompute the paired amount
-    useEffect(() => {
-        if (!marketPrice) return;
-
-        // If user entered amount1, compute amount2
-                if (amount1 && !amount2) {
-            const n = Number(amount1);
-            if (!isNaN(n) && isFinite(n)) {
-                        const tokenBObj = mapBySymbol(token2Symbol);
-                        const dec2 = tokenBObj?.decimals ?? 18;
-                        const converted = n * marketPrice;
-                        setAmount2(formatDisplayAmount(converted, dec2));
-            }
-        }
-
-        // If user entered amount2, compute amount1
-        if (amount2 && !amount1) {
-            const n = Number(amount2);
-            if (!isNaN(n) && isFinite(n) && marketPrice !== 0) {
-                const tokenAObj = mapBySymbol(token1Symbol);
-                const dec1 = tokenAObj?.decimals ?? 18;
-                const converted = n / marketPrice;
-                setAmount1(formatDisplayAmount(converted, dec1));
-            }
-        }
-    }, [marketPrice, token1Symbol, token2Symbol]);
+    // (conversion handled centrally by the conversion effect above)
 
     // Clear preflight error as soon as user changes inputs
     useEffect(() => {
@@ -894,8 +897,8 @@ export default function NewPositionPage() {
                                                     <CardDescription>Specify the token amounts for your liquidity contribution.</CardDescription>
                                                 </CardHeader>
                                                 <CardContent className="space-y-4">
-                                                    <AmountInput token={token1} value={amount1} onChange={handleAmount1Change} marketPrice={marketPrice} otherSymbol={token2.symbol} isBase={true} />
-                                                    <AmountInput token={token2} value={amount2} onChange={handleAmount2Change} marketPrice={marketPrice} otherSymbol={token1.symbol} isBase={false} />
+                                                    <AmountInput token={token1} value={amount1} onChange={handleAmount1Change} onFocus={() => setLastEdited('amount1')} marketPrice={marketPrice} otherSymbol={token2.symbol} isBase={true} />
+                                                    <AmountInput token={token2} value={amount2} onChange={handleAmount2Change} onFocus={() => setLastEdited('amount2')} marketPrice={marketPrice} otherSymbol={token1.symbol} isBase={false} />
 
                                                     <Button size="lg" className="w-full h-12 text-base" disabled={!amount1 || !amount2} onClick={() => setShowReviewDialog(true)}>
                                                         {!amount1 || !amount2 ? "Enter an amount" : "Review"}
