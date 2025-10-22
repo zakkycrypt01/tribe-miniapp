@@ -62,7 +62,7 @@ const mapContractLeaderToLeader = (contractLeader: any): Leader => {
     walletAddress: wallet,
     strategyDescription: description,
     apy30d: 0,
-    totalFees: performanceFeePercent / 100, // Convert basis points (1000 = 1%) to percentage
+    totalFees: performanceFeePercent / 100,
     riskScore: 'Low', 
     followers: Number(totalFollowers),
     tvl: Number(totalTvl),

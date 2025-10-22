@@ -288,8 +288,8 @@ export default function NewPositionPage() {
         };
 
         const txHash = await writeContract(wagmiConfig, {
-            abi: NONFUNGIBLE_POSITION_MANAGER_ABI,
-            address: NONFUNGIBLE_POSITION_MANAGER as `0x${string}`,
+            abi: ABIS.TribeUniswapV3Adapter,
+            address: CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`,
             functionName: 'mint',
             args: [mintParams],
             account: address,
@@ -430,7 +430,7 @@ export default function NewPositionPage() {
                 address: addrA, 
                 abi: erc20Abi, 
                 functionName: 'allowance', 
-                args: [address as `0x${string}`, NONFUNGIBLE_POSITION_MANAGER as `0x${string}`] 
+                args: [address as `0x${string}`, CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`] 
             });
             
             if (BigInt(allowanceA) < wantA) {
@@ -440,7 +440,7 @@ export default function NewPositionPage() {
                         address: addrA,
                         abi: erc20Abi,
                         functionName: 'approve',
-                        args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, maxApproval],
+                        args: [CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`, maxApproval],
                     });
                     console.log(`Waiting for ${tokenAObj.symbol} approval...`);
                     const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: approveTx });
@@ -458,7 +458,7 @@ export default function NewPositionPage() {
                 address: addrB, 
                 abi: erc20Abi, 
                 functionName: 'allowance', 
-                args: [address as `0x${string}`, NONFUNGIBLE_POSITION_MANAGER as `0x${string}`] 
+                args: [address as `0x${string}`, CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`] 
             });
             
             if (BigInt(allowanceB) < wantB) {
@@ -468,7 +468,7 @@ export default function NewPositionPage() {
                         address: addrB,
                         abi: erc20Abi,
                         functionName: 'approve',
-                        args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, maxApproval],
+                        args: [CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`, maxApproval],
                     });
                     console.log(`Waiting for ${tokenBObj.symbol} approval...`);
                     const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: approveTx });
