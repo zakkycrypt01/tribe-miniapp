@@ -419,6 +419,9 @@ export default function NewPositionPage() {
             const wantA = parseUnits(amount1 || '0', decA);
             const wantB = parseUnits(amount2 || '0', decB);
             
+            // Large approval amount (10^18 of the token with full decimals)
+            const maxApproval = parseUnits('100000000000000', decA); // Large amount
+            
             // Check and approve token0 if needed
             const allowanceA = await publicClient.readContract({ 
                 address: addrA, 
@@ -429,14 +432,22 @@ export default function NewPositionPage() {
             
             if (BigInt(allowanceA) < wantA) {
                 console.log(`Approving ${tokenAObj.symbol}...`);
-                const approveTx = await writeContract(wagmiConfig, {
-                    address: addrA,
-                    abi: erc20Abi,
-                    functionName: 'approve',
-                    args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, parseUnits('999999999', decA)],
-                });
-                await waitForTransactionReceipt(wagmiConfig, { hash: approveTx });
-                console.log(`✅ ${tokenAObj.symbol} approved`);
+                try {
+                    const approveTx = await writeContract(wagmiConfig, {
+                        address: addrA,
+                        abi: erc20Abi,
+                        functionName: 'approve',
+                        args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, maxApproval],
+                    });
+                    console.log(`Waiting for ${tokenAObj.symbol} approval...`);
+                    const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: approveTx });
+                    console.log(`✅ ${tokenAObj.symbol} approved`, receipt);
+                } catch (approveErr) {
+                    console.error(`Failed to approve ${tokenAObj.symbol}:`, approveErr);
+                    throw approveErr;
+                }
+            } else {
+                console.log(`${tokenAObj.symbol} already has sufficient allowance`);
             }
             
             // Check and approve token1 if needed
@@ -449,21 +460,29 @@ export default function NewPositionPage() {
             
             if (BigInt(allowanceB) < wantB) {
                 console.log(`Approving ${tokenBObj.symbol}...`);
-                const approveTx = await writeContract(wagmiConfig, {
-                    address: addrB,
-                    abi: erc20Abi,
-                    functionName: 'approve',
-                    args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, parseUnits('999999999', decB)],
-                });
-                await waitForTransactionReceipt(wagmiConfig, { hash: approveTx });
-                console.log(`✅ ${tokenBObj.symbol} approved`);
+                try {
+                    const approveTx = await writeContract(wagmiConfig, {
+                        address: addrB,
+                        abi: erc20Abi,
+                        functionName: 'approve',
+                        args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, maxApproval],
+                    });
+                    console.log(`Waiting for ${tokenBObj.symbol} approval...`);
+                    const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: approveTx });
+                    console.log(`✅ ${tokenBObj.symbol} approved`, receipt);
+                } catch (approveErr) {
+                    console.error(`Failed to approve ${tokenBObj.symbol}:`, approveErr);
+                    throw approveErr;
+                }
+            } else {
+                console.log(`${tokenBObj.symbol} already has sufficient allowance`);
             }
 
             setCreationStep('confirming');
             await createUniswapV3Position();
             setCreationStep('complete');
         } catch (e) {
-            console.error(e);
+            console.error('Transaction failed:', e);
             setPreflightError(String(e));
             setCreationStep('review');
         }
@@ -577,7 +596,7 @@ export default function NewPositionPage() {
             return false;
         }
 
-        // Check balances and allowances
+        // Check balances
         try {
             const decA = tokenAObj.decimals ?? 18;
             const decB = tokenBObj.decimals ?? 18;
@@ -595,19 +614,6 @@ export default function NewPositionPage() {
             }
             if (BigInt(balanceB) < wantB) {
                 setPreflightError('Insufficient balance for token1');
-                return false;
-            }
-
-            // Check allowances to position manager
-            const allowanceA = await publicClient.readContract({ address: addrA as `0x${string}`, abi: erc20Abi, functionName: 'allowance', args: [address as `0x${string}`, NONFUNGIBLE_POSITION_MANAGER as `0x${string}`] });
-            const allowanceB = await publicClient.readContract({ address: addrB as `0x${string}`, abi: erc20Abi, functionName: 'allowance', args: [address as `0x${string}`, NONFUNGIBLE_POSITION_MANAGER as `0x${string}`] });
-
-            if (BigInt(allowanceA) < wantA) {
-                setPreflightError('Insufficient allowance for token0; please approve');
-                return false;
-            }
-            if (BigInt(allowanceB) < wantB) {
-                setPreflightError('Insufficient allowance for token1; please approve');
                 return false;
             }
 
