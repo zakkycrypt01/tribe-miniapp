@@ -96,7 +96,7 @@ const AmountInput = ({ token, value, onChange, marketPrice, otherSymbol, isBase,
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     onFocus={() => onFocus && onFocus()}
-                    className="bg-transparent text-3xl font-medium p-0 focus-visible:ring-0"
+                    className="bg-transparent text-3xl font-medium px-3 py-2 focus-visible:ring-0"
                 />
                  <div className="flex items-center gap-2">
                     <Image src={token.icon.imageUrl} alt={token.name} width={28} height={28} className="rounded-full" data-ai-hint={token.icon.imageHint}/>
