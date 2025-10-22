@@ -882,67 +882,74 @@ export default function NewPositionPage() {
 
     return (
         <>
-            <main className="flex-1 p-4 md:p-6 lg:p-10">
-                <div className="max-w-4xl mx-auto">
-                    <div className="text-sm text-muted-foreground mb-4">
-                        <Link href="/portfolio" className="hover:underline">Your positions</Link> &gt; New position
-                    </div>
-                    
-                    <div className="flex justify-between items-center mb-6">
-                        <h1 className="text-3xl font-bold">New position</h1>
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm">Reset</Button>
-                            <Select defaultValue="v3">
-                                <SelectTrigger className="w-[120px] h-9 text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="v2">v2 position</SelectItem>
-                                    <SelectItem value="v3">v3 position</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Button variant="ghost" size="icon"><Settings className="size-5" /></Button>
+            <main className="flex-1 p-4 md:p-8 lg:p-12 bg-gradient-to-br from-background via-background to-secondary/5">
+                <div className="max-w-6xl mx-auto">
+                    <div className="mb-8">
+                        <div className="text-sm text-muted-foreground mb-4 flex items-center gap-1">
+                            <Link href="/portfolio" className="hover:text-foreground transition-colors">Your positions</Link>
+                            <span className="text-muted-foreground/50">/</span>
+                            <span>New position</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h1 className="text-4xl font-bold mb-2">Create New Position</h1>
+                                <p className="text-muted-foreground">Add liquidity to earn fees on Uniswap V3</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" className="gap-2">Reset</Button>
+                                <Select defaultValue="v3">
+                                    <SelectTrigger className="w-[140px] h-10 text-sm">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="v2">v2 position</SelectItem>
+                                        <SelectItem value="v3">v3 position</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button variant="ghost" size="icon" className="h-10 w-10"><Settings className="size-5" /></Button>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div className="md:col-span-1">
-                            <Stepper>
-                                {steps.map(step => (
-                                    <Step key={step.id} isCompleted={currentStep > step.id} isActive={currentStep === step.id}>
-                                        <span className="text-xs">Step {step.id}</span>
-                                        <p className="text-sm font-medium">{step.name}</p>
-                                    </Step>
-                                ))}
-                            </Stepper>
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                        <div className="lg:col-span-1">
+                            <div className="sticky top-8">
+                                <Stepper>
+                                    {steps.map(step => (
+                                        <Step key={step.id} isCompleted={currentStep > step.id} isActive={currentStep === step.id}>
+                                            <span className="text-xs font-medium text-muted-foreground">Step {step.id}</span>
+                                            <p className="text-sm font-semibold">{step.name}</p>
+                                        </Step>
+                                    ))}
+                                </Stepper>
+                            </div>
                         </div>
 
-                        <div className="md:col-span-2">
-                            
-                                
-                                    {currentStep === 1 && (
-                                        <Card className="bg-card/50">
-                                            <CardContent className="p-6 space-y-6">
-                                                <div>
-                                                    <h3 className="font-semibold mb-1">Select pair</h3>
-                                                    <p className="text-sm text-muted-foreground">Choose the tokens you want to provide liquidity for. You can select tokens on all supported networks.</p>
-                                                </div>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex-1">
-                                                        <TokenSelector tokens={tokens} value={token1Symbol} onChange={setToken1Symbol} />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <TokenSelector tokens={tokens} value={token2Symbol} onChange={setToken2Symbol} />
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-semibold mb-1">Fee tier</h3>
-                                                    <p className="text-sm text-muted-foreground">The amount earned providing liquidity. All v2 pools have fixed 0.3% fees. For more options, provide liquidity on v3.</p>
-                                                </div>
-                                                <Button size="lg" className="w-full h-12 text-base" onClick={() => setCurrentStep(2)} disabled={!poolAddress}>Continue</Button>
-                                            </CardContent>
-                                        </Card>
-                                    )}
+                        <div className="lg:col-span-3">
+                            {currentStep === 1 && (
+                                <Card className="bg-card/50">
+                                    <CardContent className="p-6 space-y-6">
+                                        <div>
+                                            <h3 className="font-semibold mb-1">Select pair</h3>
+                                            <p className="text-sm text-muted-foreground">Choose the tokens you want to provide liquidity for. You can select tokens on all supported networks.</p>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex-1">
+                                                <TokenSelector tokens={tokens} value={token1Symbol} onChange={setToken1Symbol} />
+                                            </div>
+                                            <div className="flex-1">
+                                                <TokenSelector tokens={tokens} value={token2Symbol} onChange={setToken2Symbol} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold mb-1">Fee tier</h3>
+                                            <p className="text-sm text-muted-foreground">The amount earned providing liquidity. All v2 pools have fixed 0.3% fees. For more options, provide liquidity on v3.</p>
+                                        </div>
+                                        <Button size="lg" className="w-full h-12 text-base" onClick={() => setCurrentStep(2)} disabled={!poolAddress}>Continue</Button>
+                                    </CardContent>
+                                </Card>
+                            )}
                                     {currentStep === 2 && (
                                         <div className="space-y-6">
                                             <Card className="bg-card/50">
@@ -959,7 +966,7 @@ export default function NewPositionPage() {
                                                                 <p className="text-xs text-muted-foreground">Pool: fetching...</p>
                                                             ) : poolAddress ? (
                                                                 <>
-                                                                    <p className="text-xs text-muted-foreground">Pool: {poolAddress} • Fee: {feeToUse / 10000}%</p>
+                                                                    <p className="text-xs text-muted-foreground">Pool: {poolAddress.slice(0, 6)}...{poolAddress.slice(-4)} • Fee: {feeToUse / 10000}%</p>
                                                                     {availableFeePools.length > 1 && (
                                                                         <div className="flex items-center gap-2 mt-1">
                                                                             {availableFeePools.map(a => (
@@ -978,7 +985,7 @@ export default function NewPositionPage() {
                                                     <Button variant="ghost" size="sm" onClick={() => setCurrentStep(1)}><Edit className="mr-2 h-4 w-4"/> Edit</Button>
                                                 </CardContent>
                                             </Card>
-                                            <Card className="bg-card/50">
+                                            {/* <Card className="bg-card/50">
                                                 <CardHeader>
                                                     <CardTitle>Set price range</CardTitle>
                                                 </CardHeader>
@@ -1014,7 +1021,7 @@ export default function NewPositionPage() {
                                                         </div>
                                                     </div>
                                                 </CardContent>
-                                            </Card>
+                                            </Card> */}
                                             <Card className="bg-card/50">
                                                 <CardHeader>
                                                     <CardTitle>Deposit tokens</CardTitle>
@@ -1040,163 +1047,177 @@ export default function NewPositionPage() {
             </main>
 
             <Dialog open={showReviewDialog} onOpenChange={resetDialog}>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader className="flex-row items-center justify-between">
-                        <DialogTitle className="text-base">Creating position</DialogTitle>
-                         <div className="flex items-center gap-2">
-                             <Button variant="outline" size="sm">Get help</Button>
-                             <DialogClose asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8"><X className="h-4 w-4" /></Button>
+                <DialogContent className="max-w-md">
+                    <div className="flex items-center justify-between mb-6">
+                        <DialogTitle className="text-xl font-bold">Creating position</DialogTitle>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" className="text-xs">Get help</Button>
+                            <DialogClose asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6"><X className="h-4 w-4" /></Button>
                             </DialogClose>
-                         </div>
-                    </DialogHeader>
+                        </div>
+                    </div>
 
                     {creationStep === 'review' && (
-                        <div className="space-y-6 pt-2">
-                            <div className="flex items-center gap-4">
+                        <div className="space-y-5">
+                            <div className="flex items-center gap-3">
                                 <div className="flex -space-x-2">
-                                    <Image src={token1.icon.imageUrl} alt={token1.name} width={28} height={28} className="rounded-full border-2 border-background" data-ai-hint={token1.icon.imageHint}/>
-                                    <Image src={token2.icon.imageUrl} alt={token2.name} width={28} height={28} className="rounded-full border-2 border-background" data-ai-hint={token2.icon.imageHint}/>
+                                    <Image src={token1.icon.imageUrl} alt={token1.name} width={32} height={32} className="rounded-full border-2 border-background" data-ai-hint={token1.icon.imageHint}/>
+                                    <Image src={token2.icon.imageUrl} alt={token2.name} width={32} height={32} className="rounded-full border-2 border-background" data-ai-hint={token2.icon.imageHint}/>
                                 </div>
-                                <h2 className="text-2xl font-bold">{token1.symbol} / {token2.symbol}</h2>
-                                <Badge variant="secondary">v3</Badge>
-                                <Badge variant="secondary">0.3%</Badge>
+                                <div className="flex-1">
+                                    <h2 className="text-2xl font-bold">{token1.symbol} / {token2.symbol}</h2>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Badge className="bg-primary/10 text-primary border-0">v3</Badge>
+                                    <Badge className="bg-primary/10 text-primary border-0">{(feeToUse / 10000).toFixed(2)}%</Badge>
+                                </div>
                             </div>
                             
-                            <div className="h-24 bg-muted/50 rounded-md flex items-center justify-center text-muted-foreground">
-                                <AreaChart className="w-48 h-20 text-primary" />
+                            {/* <div className="h-20 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg flex items-center justify-center text-muted-foreground border border-primary/10">
+                                <AreaChart className="w-40 h-16 text-primary/30" />
+                            </div> */}
+
+                            <div className="grid grid-cols-2 gap-3 bg-secondary/30 rounded-lg p-4">
+                                <div className="text-center">
+                                    <p className="text-xs text-muted-foreground mb-1">Min Price</p>
+                                    <p className="font-semibold text-sm">{minPrice}</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-xs text-muted-foreground mb-1">Max Price</p>
+                                    <p className="font-semibold text-sm">{maxPrice === 'Infinity' ? '∞' : maxPrice}</p>
+                                </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 text-center">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Min</p>
-                                    <p className="font-semibold">{minPrice} {token2.symbol}/{token1.symbol}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Max</p>
-                                    <p className="font-semibold">{maxPrice === 'Infinity' ? '∞' : maxPrice} {token2.symbol}/{token1.symbol}</p>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h3 className="text-sm text-muted-foreground mb-2">Depositing</h3>
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center">
+                            <div className="bg-secondary/30 rounded-lg p-4 space-y-4">
+                                <h3 className="text-sm font-semibold">Depositing</h3>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between p-3 bg-background rounded-lg">
                                         <div className="flex items-center gap-2">
-                                                    <Image src={token1.icon.imageUrl} alt={token1.name} width={24} height={24} className="rounded-full" data-ai-hint={token1.icon.imageHint}/>
-                                                    <div>
-                                                        <p className="font-semibold">{amount1} {token1.symbol}</p>
-                                                        <p className="text-xs text-muted-foreground">{marketPrice ? `${(Number(amount1) * marketPrice).toFixed(6)} ${token2.symbol}` : '—'}</p>
-                                                    </div>
-                                                </div>
+                                            <Image src={token1.icon.imageUrl} alt={token1.name} width={24} height={24} className="rounded-full" data-ai-hint={token1.icon.imageHint}/>
+                                            <div>
+                                                <p className="font-semibold text-sm">{amount1}</p>
+                                                <p className="text-xs text-muted-foreground">{token1.symbol}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right text-xs text-muted-foreground">
+                                            {marketPrice ? `≈ ${(Number(amount1) * marketPrice).toFixed(8)} ${token2.symbol}` : '—'}
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                            <div className="flex items-center gap-2">
+                                    <div className="flex items-center justify-between p-3 bg-background rounded-lg">
+                                        <div className="flex items-center gap-2">
                                             <Image src={token2.icon.imageUrl} alt={token2.name} width={24} height={24} className="rounded-full" data-ai-hint={token2.icon.imageHint}/>
                                             <div>
-                                                <p className="font-semibold">{amount2} {token2.symbol}</p>
-                                                <p className="text-xs text-muted-foreground">{marketPrice ? `${(Number(amount2) / marketPrice).toFixed(6)} ${token1.symbol}` : '—'}</p>
+                                                <p className="font-semibold text-sm">{amount2}</p>
+                                                <p className="text-xs text-muted-foreground">{token2.symbol}</p>
                                             </div>
+                                        </div>
+                                        <div className="text-right text-xs text-muted-foreground">
+                                            {marketPrice ? `≈ ${(Number(amount2) / marketPrice).toFixed(8)} ${token1.symbol}` : '—'}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="mt-4">
-                                    <h4 className="text-sm text-muted-foreground mb-1">Estimated position</h4>
-                                    {isCalculating ? (
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <Loader2 className="h-4 w-4 animate-spin" /> Calculating on-chain estimates...
-                                        </div>
-                                    ) : calculatedPosition ? (
-                                        calculatedPosition.error ? (
-                                            <p className="text-sm text-destructive">{calculatedPosition.error}</p>
-                                        ) : (
-                                            <div className="text-sm">
-                                                <div className="flex justify-between">
-                                                    <span>Amount {token1.symbol}</span>
-                                                    <span className="font-medium">{calculatedPosition.amount0}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>Amount {token2.symbol}</span>
-                                                    <span className="font-medium">{calculatedPosition.amount1}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>Liquidity</span>
-                                                    <span className="font-medium">{calculatedPosition.liquidity}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>Tick range</span>
-                                                    <span className="font-medium">{calculatedPosition.tickLower} — {calculatedPosition.tickUpper}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>Current price</span>
-                                                    <span className="font-medium">{calculatedPosition.currentPrice}</span>
-                                                </div>
-                                            </div>
-                                        )
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground">No estimation available</p>
-                                    )}
-                                </div>
                             </div>
 
-                            <div className="border-t pt-4">
-                                <div className="flex justify-between items-center text-sm">
-                                    <p className="text-muted-foreground">Network cost</p>
-                                    <p className="font-semibold">$2.14</p>
-                                </div>
-                                {preflightError && (
-                                    <div className="mt-2 text-sm text-destructive">{preflightError}</div>
+                            <div className="bg-secondary/30 rounded-lg p-4 space-y-3">
+                                <h4 className="text-sm font-semibold">Estimated position</h4>
+                                {isCalculating ? (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                                        <Loader2 className="h-4 w-4 animate-spin" /> Calculating...
+                                    </div>
+                                ) : calculatedPosition ? (
+                                    calculatedPosition.error ? (
+                                        <p className="text-sm text-destructive py-2">{calculatedPosition.error}</p>
+                                    ) : (
+                                        <div className="text-sm space-y-2">
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Amount {token1.symbol}</span>
+                                                <span className="font-medium">{calculatedPosition.amount0}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Amount {token2.symbol}</span>
+                                                <span className="font-medium">{calculatedPosition.amount1}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Liquidity</span>
+                                                <span className="font-medium">{calculatedPosition.liquidity}</span>
+                                            </div>
+                                            <div className="flex justify-between pt-2 border-t border-border/30">
+                                                <span className="text-muted-foreground text-xs">Tick range</span>
+                                                <span className="font-medium text-xs">{calculatedPosition.tickLower} → {calculatedPosition.tickUpper}</span>
+                                            </div>
+                                        </div>
+                                    )
+                                ) : (
+                                    <p className="text-sm text-muted-foreground py-2">—</p>
                                 )}
                             </div>
 
-                            <Button size="lg" className="w-full h-12 text-base" onClick={handleCreate} disabled={isCalculating || isFetchingMarketPrice || !!preflightError}>Create</Button>
+                            <div className="bg-secondary/30 rounded-lg p-4">
+                                <div className="flex justify-between items-center mb-3">
+                                    <p className="text-sm text-muted-foreground">Network cost</p>
+                                    <p className="font-semibold">$2.14</p>
+                                </div>
+                                {preflightError && (
+                                    <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded p-2">{preflightError}</div>
+                                )}
+                            </div>
+
+                            <Button size="lg" className="w-full h-11 text-base font-medium" onClick={handleCreate} disabled={isCalculating || isFetchingMarketPrice || !!preflightError}>
+                                {preflightError ? 'Fix error to create' : 'Create position'}
+                            </Button>
                         </div>
-                    )}
-                    
-                    {creationStep !== 'review' && (
-                         <div className="space-y-6 pt-2">
-                            <div className="flex items-center gap-4">
+                    )}                    {creationStep !== 'review' && (
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3 mb-6">
                                 <div className="flex -space-x-2">
-                                    <Image src={token1.icon.imageUrl} alt={token1.name} width={28} height={28} className="rounded-full border-2 border-background" data-ai-hint={token1.icon.imageHint}/>
-                                    <Image src={token2.icon.imageUrl} alt={token2.name} width={28} height={28} className="rounded-full border-2 border-background" data-ai-hint={token2.icon.imageHint}/>
+                                    <Image src={token1.icon.imageUrl} alt={token1.name} width={32} height={32} className="rounded-full border-2 border-background" data-ai-hint={token1.icon.imageHint}/>
+                                    <Image src={token2.icon.imageUrl} alt={token2.name} width={32} height={32} className="rounded-full border-2 border-background" data-ai-hint={token2.icon.imageHint}/>
                                 </div>
                                 <h2 className="text-2xl font-bold">{token1.symbol} / {token2.symbol}</h2>
                             </div>
                             
-                            <div className="h-24 bg-muted/50 rounded-md flex items-center justify-center text-muted-foreground">
-                                <AreaChart className="w-48 h-20 text-primary" />
-                            </div>
+                            {/* <div className="h-20 bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg flex items-center justify-center border border-primary/10">
+                                <AreaChart className="w-40 h-16 text-primary/30" />
+                            </div> */}
 
-                            <div className="border-t pt-4">
-                                <div className="flex items-start gap-4">
+                            <div className="space-y-4">
+                                <div className="flex items-start gap-3 p-4 bg-secondary/30 rounded-lg">
                                     {creationStep === 'approving' ? (
-                                        <Loader2 className="size-5 text-primary animate-spin mt-1" />
+                                        <Loader2 className="size-5 text-primary animate-spin mt-0.5 flex-shrink-0" />
                                     ) : (
-                                        <CheckCircle className="size-5 text-primary mt-1" />
+                                        <CheckCircle className="size-5 text-green-500 mt-0.5 flex-shrink-0" />
                                     )}
-                                    <div className="flex-1">
-                                        <p className="font-semibold">Approve in wallet</p>
-                                        <a href="#" className="text-xs text-primary hover:underline">Why do I have to approve a token?</a>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-semibold text-sm">Approve tokens</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Allow the contract to spend your tokens</p>
+                                        <a href="#" className="text-xs text-primary hover:underline mt-2 inline-block">Why do I need to approve?</a>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="border-t pt-4">
-                                 <div className="flex items-start gap-4">
+
+                                <div className="flex items-start gap-3 p-4 bg-secondary/30 rounded-lg">
                                     {creationStep === 'approving' ? (
-                                         <Circle className="size-5 text-muted-foreground mt-1" />
+                                        <Circle className="size-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                                     ) : creationStep === 'confirming' ? (
-                                        <Loader2 className="size-5 text-primary animate-spin mt-1" />
-                                    ): (
-                                        <CheckCircle className="size-5 text-primary mt-1" />
+                                        <Loader2 className="size-5 text-primary animate-spin mt-0.5 flex-shrink-0" />
+                                    ) : (
+                                        <CheckCircle className="size-5 text-green-500 mt-0.5 flex-shrink-0" />
                                     )}
-                                    <div className={cn("flex-1", creationStep === 'approving' && "opacity-50")}>
-                                        <p className="font-semibold">Confirm in wallet</p>
+                                    <div className={cn("flex-1 min-w-0", creationStep === 'approving' && "opacity-50")}>
+                                        <p className="font-semibold text-sm">Confirm transaction</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Create your liquidity position on Uniswap V3</p>
                                     </div>
                                 </div>
                             </div>
 
                             {creationStep === 'complete' && (
-                                <Button size="lg" className="w-full h-12 text-base" onClick={handleDone}>Done</Button>
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-center p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                        <CheckCircle className="size-6 text-green-500 mr-2" />
+                                        <span className="font-semibold text-green-600">Position created successfully!</span>
+                                    </div>
+                                    <Button size="lg" className="w-full h-11 text-base font-medium" onClick={handleDone}>Done</Button>
+                                </div>
                             )}
                          </div>
                     )}
