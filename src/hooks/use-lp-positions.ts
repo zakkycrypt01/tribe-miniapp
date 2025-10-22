@@ -58,10 +58,11 @@ export function useLpPositions() {
       // Initialize with hardcoded token metadata
       // Add our known tokens to the cache if they're not already there
       Object.keys(TOKEN_METADATA).forEach(address => {
-        if (!tokenMetadataCache[address]) {
+        const normalizedAddress = address.toLowerCase();
+        if (!tokenMetadataCache[normalizedAddress]) {
           setTokenMetadataCache(prev => ({
             ...prev,
-            [address]: TOKEN_METADATA[address]
+            [normalizedAddress]: TOKEN_METADATA[address]
           }));
         }
       });
@@ -576,23 +577,43 @@ export function useLpPositions() {
             continue;
           }
           
-          // Check cache first, then fallback to defaults
-          let token0Metadata = tokenMetadataCache[token0Address] || {
+          // Check if the address is in our hardcoded list (case-insensitive comparison)
+          const checkHardcodedMetadata = (address: string) => {
+            // First try normalized cache
+            if (tokenMetadataCache[address]) {
+              console.log(`Found token ${address} in metadata cache`);
+              return tokenMetadataCache[address];
+            }
+            
+            // Then try non-normalized hardcoded values
+            for (const knownAddress of Object.keys(TOKEN_METADATA)) {
+              if (knownAddress.toLowerCase() === address) {
+                console.log(`Found token ${address} in hardcoded TOKEN_METADATA as ${knownAddress}`);
+                return TOKEN_METADATA[knownAddress];
+              }
+            }
+            
+            console.log(`Token ${address} not found in hardcoded metadata`);
+            return null;
+          };
+          
+          // Check cache first, then hardcoded metadata, then fallback to defaults
+          let token0Metadata = checkHardcodedMetadata(token0Address) || {
             symbol: 'Unknown',
             name: 'Unknown Token',
             decimals: 18,
             iconUrl: '/assets/images/tokens/eth.png'
           };
           
-          let token1Metadata = tokenMetadataCache[token1Address] || {
+          let token1Metadata = checkHardcodedMetadata(token1Address) || {
             symbol: 'Unknown',
             name: 'Unknown Token',
             decimals: 18,
             iconUrl: '/assets/images/tokens/eth.png'
           };
           
-          // If token metadata not in cache, try to fetch it
-          if (!tokenMetadataCache[token0Address]) {
+          // If token metadata not in cache and wasn't in hardcoded values, try to fetch it
+          if (!token0Metadata.symbol || token0Metadata.symbol === 'Unknown') {
             try {
               const fetchedMetadata0 = await fetchTokenMetadata(token0Address, publicClient);
               if (fetchedMetadata0) {
@@ -602,13 +623,14 @@ export function useLpPositions() {
                   ...prev,
                   [token0Address]: fetchedMetadata0
                 }));
+                console.log(`Fetched metadata for token0 ${token0Address}:`, fetchedMetadata0.symbol);
               }
             } catch (err) {
               console.warn(`Could not fetch metadata for token0 ${token0Address}:`, err);
             }
           }
           
-          if (!tokenMetadataCache[token1Address]) {
+          if (!token1Metadata.symbol || token1Metadata.symbol === 'Unknown') {
             try {
               const fetchedMetadata1 = await fetchTokenMetadata(token1Address, publicClient);
               if (fetchedMetadata1) {
@@ -618,6 +640,7 @@ export function useLpPositions() {
                   ...prev,
                   [token1Address]: fetchedMetadata1
                 }));
+                console.log(`Fetched metadata for token1 ${token1Address}:`, fetchedMetadata1.symbol);
               }
             } catch (err) {
               console.warn(`Could not fetch metadata for token1 ${token1Address}:`, err);
@@ -730,8 +753,19 @@ export function useLpPositions() {
       console.log("Returning positions to UI:", positions);
       console.log("Tribe strategy positions:", positions.filter(p => p.isTribeStrategy).length);
       console.log("Other positions:", positions.filter(p => !p.isTribeStrategy).length);
+      
+      // Log unique tokens found in positions for debugging
+      const uniqueTokens = new Set<string>();
+      positions.forEach(position => {
+        position.pair.forEach(token => {
+          uniqueTokens.add(`${token.id} (${token.symbol})`);
+        });
+      });
+      
+      console.log("Unique tokens found in positions:", Array.from(uniqueTokens));
+      console.log("Token metadata cache contains:", Object.keys(tokenMetadataCache).length, "tokens");
     }
-  }, [positions]);
+  }, [positions, tokenMetadataCache]);
   
   return { 
     positions, 
