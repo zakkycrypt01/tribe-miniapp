@@ -273,25 +273,26 @@ export default function NewPositionPage() {
 
         const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes
 
-        const mintParams = {
-            token0: token0 as `0x${string}`,
-            token1: token1 as `0x${string}`,
+        // The ABI expects a tuple, so pass as an array in the correct order
+        const mintParamsArray = [
+            token0 as `0x${string}`,
+            token1 as `0x${string}`,
             fee,
             tickLower,
             tickUpper,
             amount0Desired,
             amount1Desired,
-            amount0Min: 0n,
-            amount1Min: 0n,
-            recipient: address as `0x${string}`,
+            0n,
+            0n,
+            address as `0x${string}`,
             deadline,
-        };
+        ];
 
         const txHash = await writeContract(wagmiConfig, {
             abi: ABIS.TribeUniswapV3Adapter,
             address: CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`,
             functionName: 'mintPosition',
-            args: [mintParams],
+            args: [mintParamsArray],
             account: address,
         });
         const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash });
