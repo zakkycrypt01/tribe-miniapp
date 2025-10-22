@@ -431,23 +431,46 @@ export default function NewPositionPage() {
                 const t1 = mapBySymbol(token1Symbol);
                 const t2 = mapBySymbol(token2Symbol);
                 if (!t1 || !t2) {
+                    console.warn('Token not found:', token1Symbol, token2Symbol);
                     setBalance1(null);
                     setBalance2(null);
                     return;
                 }
 
+                console.log('Fetching balances for:', t1.symbol, t2.symbol, 'from address:', address);
+
                 const [raw1, raw2] = await Promise.all([
-                    publicClient.readContract({ address: t1.address as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] }),
-                    publicClient.readContract({ address: t2.address as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] }),
+                    publicClient.readContract({ 
+                        address: t1.address as `0x${string}`, 
+                        abi: erc20Abi, 
+                        functionName: 'balanceOf', 
+                        args: [address as `0x${string}`] 
+                    }).catch(err => {
+                        console.error(`Failed to fetch ${t1.symbol} balance:`, err);
+                        return BigInt(0);
+                    }),
+                    publicClient.readContract({ 
+                        address: t2.address as `0x${string}`, 
+                        abi: erc20Abi, 
+                        functionName: 'balanceOf', 
+                        args: [address as `0x${string}`] 
+                    }).catch(err => {
+                        console.error(`Failed to fetch ${t2.symbol} balance:`, err);
+                        return BigInt(0);
+                    }),
                 ]);
 
                 if (cancelled) return;
 
+                console.log('Raw balances:', raw1, raw2);
                 // publicClient.readContract for balanceOf returns a bigint-like value
-                setBalance1(formatUnits(raw1 as bigint, t1.decimals));
-                setBalance2(formatUnits(raw2 as bigint, t2.decimals));
+                const bal1 = formatUnits(raw1 as bigint, t1.decimals);
+                const bal2 = formatUnits(raw2 as bigint, t2.decimals);
+                console.log('Formatted balances:', bal1, bal2);
+                setBalance1(bal1);
+                setBalance2(bal2);
             } catch (e) {
-                console.warn('Failed to fetch balances', e);
+                console.error('Failed to fetch balances', e);
                 setBalance1(null);
                 setBalance2(null);
             }
