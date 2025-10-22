@@ -286,10 +286,10 @@ export default function NewPositionPage() {
         // For dealing with slippage errors, we need to set more generous slippage tolerance
         
         // Calculate minimum amounts based on settings
-        // If useZeroMinimums is true, use 0 for both min amounts (just like the Solidity script)
-        // Otherwise use 5% slippage allowance
-        const amount0Min = useZeroMinimums ? 0n : amount0Desired * 95n / 100n; // 0 or 5% slippage 
-        const amount1Min = useZeroMinimums ? 0n : amount1Desired * 95n / 100n; // 0 or 5% slippage
+        // If useZeroMinimums is true, use 0 for both min amounts (EXACTLY like the Solidity script)
+        // Otherwise use a much more generous 10% slippage allowance
+        const amount0Min = useZeroMinimums ? 0n : amount0Desired * 90n / 100n; // 0 or 10% slippage 
+        const amount1Min = useZeroMinimums ? 0n : amount1Desired * 90n / 100n; // 0 or 10% slippage
         
         console.log('Slippage calculation:', {
             amount0Desired: amount0Desired.toString(),
@@ -299,6 +299,7 @@ export default function NewPositionPage() {
             useZeroMinimums,
         });
         
+        // If using zero minimums, build the params exactly like the Solidity script
         const mintParamsArray = [
             token0 as `0x${string}`,
             token1 as `0x${string}`,
@@ -307,8 +308,8 @@ export default function NewPositionPage() {
             tickUpper,
             amount0Desired,
             amount1Desired,
-            amount0Min, 
-            amount1Min,
+            useZeroMinimums ? 0n : amount0Min,  // Set to 0 if useZeroMinimums is true
+            useZeroMinimums ? 0n : amount1Min,  // Set to 0 if useZeroMinimums is true
         ];
 
         // First approve tokens just like the Solidity script does
@@ -1251,29 +1252,43 @@ export default function NewPositionPage() {
                                         
                                         {/* Add option to retry with zero minimums if slippage error */}
                                         {preflightError.includes('slippage') && (
-                                            <div className="flex items-center mt-2">
+                                            <div className="flex items-center mt-3 p-2 bg-background/80 rounded border border-primary">
                                                 <input 
                                                     type="checkbox" 
                                                     id="zero-minimums" 
                                                     checked={useZeroMinimums}
-                                                    onChange={(e) => setUseZeroMinimums(e.target.checked)}
-                                                    className="mr-2"
+                                                    onChange={(e) => {
+                                                        console.log("Setting useZeroMinimums to:", e.target.checked);
+                                                        setUseZeroMinimums(e.target.checked);
+                                                    }}
+                                                    className="mr-2 h-4 w-4"
                                                 />
-                                                <label htmlFor="zero-minimums" className="text-xs cursor-pointer">
-                                                    Use zero minimums (like Solidity script)
+                                                <label htmlFor="zero-minimums" className="text-sm font-medium cursor-pointer text-primary">
+                                                    Use zero minimums (exactly like Solidity script)
                                                 </label>
                                             </div>
                                         )}
                                     </div>
                                 )}
-                            </div>                            <Button 
+                            </div>                            {preflightError?.includes('slippage') && !useZeroMinimums && (
+                                <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-blue-600 text-sm">
+                                    <strong>Tip:</strong> Check the "Use zero minimums" option above to match the Solidity script's behavior exactly. 
+                                    This will allow the transaction to succeed despite price fluctuations.
+                                </div>
+                            )}
+                        
+                            <Button 
                                 size="lg" 
-                                className="w-full h-12 text-base font-medium bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80" 
+                                className={`w-full h-12 text-base font-medium ${
+                                    useZeroMinimums && preflightError?.includes('slippage')
+                                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                                    : 'bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80'
+                                }`}
                                 onClick={handleCreate} 
                                 disabled={isCalculating || isFetchingMarketPrice || (!!preflightError && !useZeroMinimums)}
                             >
                                 {preflightError 
-                                    ? (useZeroMinimums ? 'Retry with Zero Minimums' : 'Fix Error to Create') 
+                                    ? (useZeroMinimums ? 'Retry with Zero Minimums (Recommended)' : 'Fix Error to Create') 
                                     : 'Create Position'}
                             </Button>
                         </div>
