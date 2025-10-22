@@ -346,13 +346,17 @@ export default function NewPositionPage() {
             if (cancelled) return;
 
             try {
+                // Determine which token is token0 (smaller address)
+                const tokenAIsToken0 = tokenAObj.sortsBefore(tokenBObj);
+                
                 if (lastEdited === 'amount1' && amount1 !== '') {
                     const n = Number(amount1);
                     if (!isNaN(n) && isFinite(n) && n > 0) {
                         const optimal = await calculateOptimalAmounts(tokenAObj, tokenBObj, feeToUse, amount1);
                         if (cancelled) return;
-                        const token0Obj = tokenAObj.sortsBefore(tokenBObj) ? tokenAObj : tokenBObj;
-                        const converted = token0Obj.address === tokenAObj.address ? optimal.amount1 : optimal.amount0;
+                        // If tokenA is token0, then the output (amount1 from SDK) corresponds to tokenB
+                        // If tokenA is NOT token0, then the output (amount0 from SDK) corresponds to tokenB
+                        const converted = tokenAIsToken0 ? optimal.amount1 : optimal.amount0;
                         setAmount2(formatDisplayAmount(Number(converted), decB));
                     }
                 } else if (lastEdited === 'amount2' && amount2 !== '') {
@@ -360,29 +364,10 @@ export default function NewPositionPage() {
                     if (!isNaN(n) && isFinite(n) && n > 0) {
                         const optimal = await calculateOptimalAmounts(tokenBObj, tokenAObj, feeToUse, amount2);
                         if (cancelled) return;
-                        const token0Obj = tokenAObj.sortsBefore(tokenBObj) ? tokenAObj : tokenBObj;
-                        const converted = token0Obj.address === tokenAObj.address ? optimal.amount0 : optimal.amount1;
+                        // If tokenB is token0 (which means tokenB < tokenA), then the output (amount1 from SDK) corresponds to tokenA
+                        // If tokenB is NOT token0 (which means tokenA < tokenB), then the output (amount0 from SDK) corresponds to tokenA
+                        const converted = tokenAIsToken0 ? optimal.amount0 : optimal.amount1;
                         setAmount1(formatDisplayAmount(Number(converted), decA));
-                    }
-                } else {
-                    if (amount1 && !amount2) {
-                        const n = Number(amount1);
-                        if (!isNaN(n) && isFinite(n) && n > 0) {
-                            const optimal = await calculateOptimalAmounts(tokenAObj, tokenBObj, feeToUse, amount1);
-                            if (cancelled) return;
-                            const token0Obj = tokenAObj.sortsBefore(tokenBObj) ? tokenAObj : tokenBObj;
-                            const converted = token0Obj.address === tokenAObj.address ? optimal.amount1 : optimal.amount0;
-                            setAmount2(formatDisplayAmount(Number(converted), decB));
-                        }
-                    } else if (amount2 && !amount1) {
-                        const n = Number(amount2);
-                        if (!isNaN(n) && isFinite(n) && n > 0) {
-                            const optimal = await calculateOptimalAmounts(tokenBObj, tokenAObj, feeToUse, amount2);
-                            if (cancelled) return;
-                            const token0Obj = tokenAObj.sortsBefore(tokenBObj) ? tokenAObj : tokenBObj;
-                            const converted = token0Obj.address === tokenAObj.address ? optimal.amount0 : optimal.amount1;
-                            setAmount1(formatDisplayAmount(Number(converted), decA));
-                        }
                     }
                 }
             } catch (e) {
