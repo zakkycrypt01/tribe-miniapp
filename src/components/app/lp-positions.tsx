@@ -6,17 +6,35 @@ import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useLpPositions } from "@/hooks/use-lp-positions";
+import Link from "next/link";
+import { useState } from "react";
+import { RemoveLiquidityModal } from "./remove-liquidity-modal";
 
-export function LpPositions({ positions }: { positions: LpPosition[] }) {
-  const tribeStrategy = positions.find(p => p.isTribeStrategy);
-  const otherPositions = positions.filter(p => !p.isTribeStrategy);
+export function LpPositions({ externalPositions }: { externalPositions?: LpPosition[] }) {
+  const { positions: fetchedPositions, isLoading, error } = useLpPositions();
+  
+  // Use external positions if provided, otherwise use fetched positions
+  const positions = externalPositions || fetchedPositions;
+  
+  // State for remove liquidity modal
+  const [selectedPosition, setSelectedPosition] = useState<LpPosition | null>(null);
+  const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
+  
+  // Function to open remove modal for a position
+  const openRemoveModal = (position: LpPosition) => {
+    setSelectedPosition(position);
+    setIsRemoveModalOpen(true);
+  };
+  const tribeStrategy = positions?.find(p => p.isTribeStrategy);
+  const otherPositions = positions?.filter(p => !p.isTribeStrategy) || [];
 
   return (
     <Card>
@@ -25,7 +43,29 @@ export function LpPositions({ positions }: { positions: LpPosition[] }) {
         <CardDescription>Overview of all your active LP positions on Base.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {tribeStrategy && (
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+            <p className="text-sm text-muted-foreground">Loading your positions...</p>
+          </div>
+        )}
+        
+        {error && !isLoading && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-md p-4">
+            <p className="text-destructive text-sm">Failed to load positions. Please try again later.</p>
+          </div>
+        )}
+        
+        {!isLoading && !error && positions.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground mb-4">You don't have any LP positions yet</p>
+            <Link href="/pools/new">
+              <Button>Create Position</Button>
+            </Link>
+          </div>
+        )}
+        
+        {!isLoading && tribeStrategy && (
           <div>
             <h3 className="mb-2 font-medium text-primary">Active Tribe Strategy Position</h3>
             <Card className="bg-primary/10 border-primary/50">
@@ -49,8 +89,17 @@ export function LpPositions({ positions }: { positions: LpPosition[] }) {
                   </div>
                 </div>
                  <div className="flex gap-2 justify-end">
-                    <Button variant="secondary" size="xs" className="rounded-md">Add/Adjust Liquidity</Button>
-                    <Button variant="outline" size="xs" className="rounded-md">Remove Liquidity</Button>
+                    <Link href={`/pools/${tribeStrategy.id}`}>
+                      <Button variant="secondary" size="xs" className="rounded-md">Add/Adjust Liquidity</Button>
+                    </Link>
+                    <Button 
+                      variant="outline" 
+                      size="xs" 
+                      className="rounded-md" 
+                      onClick={() => openRemoveModal(tribeStrategy)}
+                    >
+                      Remove Liquidity
+                    </Button>
                 </div>
               </CardContent>
             </Card>
@@ -96,8 +145,12 @@ export function LpPositions({ positions }: { positions: LpPosition[] }) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Adjust</DropdownMenuItem>
-                            <DropdownMenuItem>Remove</DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/pools/${pos.id}`}>Adjust</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openRemoveModal(pos)}>
+                              Remove
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -109,6 +162,17 @@ export function LpPositions({ positions }: { positions: LpPosition[] }) {
           </div>
         )}
       </CardContent>
+      
+      {/* Remove Liquidity Modal */}
+      <RemoveLiquidityModal 
+        open={isRemoveModalOpen}
+        onOpenChange={setIsRemoveModalOpen}
+        position={selectedPosition}
+        onRemoveSuccess={() => {
+          // Force a refresh of positions by triggering a state update
+          setSelectedPosition(null);
+        }}
+      />
     </Card>
   );
 }
