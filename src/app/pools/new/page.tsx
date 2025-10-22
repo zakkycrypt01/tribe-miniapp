@@ -236,25 +236,6 @@ export default function NewPositionPage() {
     const tickLower = computedTickLower ?? -887220;
     const tickUpper = computedTickUpper ?? 887220;
 
-        // Approve the Nonfungible Position Manager (match the solidity script)
-        const approve0Hash = await writeContract(wagmiConfig, {
-            abi: erc20Abi,
-            address: token0,
-            functionName: 'approve',
-            args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, amount0Desired],
-            account: address,
-        });
-        await waitForTransactionReceipt(wagmiConfig, { hash: approve0Hash });
-
-        const approve1Hash = await writeContract(wagmiConfig, {
-            abi: erc20Abi,
-            address: token1,
-            functionName: 'approve',
-            args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, amount1Desired],
-            account: address,
-        });
-        await waitForTransactionReceipt(wagmiConfig, { hash: approve1Hash });
-
         // Build mint params and call the NonfungiblePositionManager directly (like the solidity script)
         const NONFUNGIBLE_POSITION_MANAGER_ABI = [
             {
