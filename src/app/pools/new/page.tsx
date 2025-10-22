@@ -395,6 +395,8 @@ export default function NewPositionPage() {
     const handleCreate = async () => {
         try {
             setPreflightError(null);
+            if (!publicClient || !address) throw new Error('Wallet or client not connected');
+            
             // Run preflight checks
             const ok = await runPreflightChecks();
             if (!ok) {
@@ -403,6 +405,60 @@ export default function NewPositionPage() {
             }
 
             setCreationStep('approving');
+            
+            // Approve tokens if needed
+            const tokenAObj = mapBySymbol(token1Symbol);
+            const tokenBObj = mapBySymbol(token2Symbol);
+            if (!tokenAObj || !tokenBObj) throw new Error('Invalid token');
+            
+            const addrA = tokenAObj.address as `0x${string}`;
+            const addrB = tokenBObj.address as `0x${string}`;
+            const decA = tokenAObj.decimals ?? 18;
+            const decB = tokenBObj.decimals ?? 18;
+            
+            const wantA = parseUnits(amount1 || '0', decA);
+            const wantB = parseUnits(amount2 || '0', decB);
+            
+            // Check and approve token0 if needed
+            const allowanceA = await publicClient.readContract({ 
+                address: addrA, 
+                abi: erc20Abi, 
+                functionName: 'allowance', 
+                args: [address as `0x${string}`, NONFUNGIBLE_POSITION_MANAGER as `0x${string}`] 
+            });
+            
+            if (BigInt(allowanceA) < wantA) {
+                console.log(`Approving ${tokenAObj.symbol}...`);
+                const approveTx = await writeContract(wagmiConfig, {
+                    address: addrA,
+                    abi: erc20Abi,
+                    functionName: 'approve',
+                    args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, parseUnits('999999999', decA)],
+                });
+                await waitForTransactionReceipt(wagmiConfig, { hash: approveTx });
+                console.log(`✅ ${tokenAObj.symbol} approved`);
+            }
+            
+            // Check and approve token1 if needed
+            const allowanceB = await publicClient.readContract({ 
+                address: addrB, 
+                abi: erc20Abi, 
+                functionName: 'allowance', 
+                args: [address as `0x${string}`, NONFUNGIBLE_POSITION_MANAGER as `0x${string}`] 
+            });
+            
+            if (BigInt(allowanceB) < wantB) {
+                console.log(`Approving ${tokenBObj.symbol}...`);
+                const approveTx = await writeContract(wagmiConfig, {
+                    address: addrB,
+                    abi: erc20Abi,
+                    functionName: 'approve',
+                    args: [NONFUNGIBLE_POSITION_MANAGER as `0x${string}`, parseUnits('999999999', decB)],
+                });
+                await waitForTransactionReceipt(wagmiConfig, { hash: approveTx });
+                console.log(`✅ ${tokenBObj.symbol} approved`);
+            }
+
             setCreationStep('confirming');
             await createUniswapV3Position();
             setCreationStep('complete');
