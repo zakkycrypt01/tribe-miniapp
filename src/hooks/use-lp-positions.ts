@@ -81,6 +81,7 @@ export function useLpPositions() {
             args: [address as `0x${string}`]
           });
           isLeader = Boolean(leaderCheckResult);
+          console.log('User is a leader:', isLeader);
         } catch (error) {
           console.warn('Error checking if user is a leader:', error);
         }
@@ -89,147 +90,296 @@ export function useLpPositions() {
         if (isLeader) {
           try {
             console.log('User is a registered leader, fetching leader positions...');
-            const leaderPositionsResponse = await readContract(wagmiConfig, {
+            // For leaders, we shouldn't use getUserPositions which might not exist
+            // Instead, check for positions directly owned by the leader through the NFT position manager
+            // This is just a placeholder - we're handling their positions differently
+            
+            // We'll implement proper leader position fetching below
+            // Leave this section for now until we implement the correct leader position fetch method
+          } catch (error) {
+            console.error('Error fetching leader positions:', error);
+          }
+        }
+
+        // 2. If user is a leader, we'll handle their positions differently
+        // For followers, we need to check their vault positions
+        if (!isLeader) {
+          // Get all registered leaders to check follower vaults
+          let allLeaders: string[] = [];
+          try {
+            allLeaders = await readContract(wagmiConfig, {
+              address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
+              abi: ABIS.TribeLeaderRegistry,
+              functionName: 'getAllLeaders',
+              args: []
+            }) as string[];
+            console.log(`Found ${allLeaders.length} registered leaders`);
+          } catch (error) {
+            console.error('Error fetching all leaders:', error);
+          }
+  
+          // 3. Check if user has vaults for each leader
+          if (allLeaders.length > 0) {
+            const vaultFactory = CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`;
+            
+            // Create an array of contract read configurations - need to use specific typing for wagmi
+            const vaultChecks = allLeaders.map(leader => ({
+              address: vaultFactory,
+              abi: ABIS.TribeVaultFactory as any, // Use type assertion to match wagmi's expected types
+              functionName: 'followerVaults',
+              args: [address as `0x${string}`, leader as `0x${string}`]
+            }));
+            
+            // Execute all contract reads in parallel
+            const vaultAddresses = await readContracts(wagmiConfig, {
+              contracts: vaultChecks as any // Use type assertion to match wagmi's expected types
+            });
+            
+            const validVaults = vaultAddresses
+              .map((result, index) => {
+                if (result.status === 'success' && result.result !== '0x0000000000000000000000000000000000000000') {
+                  return {
+                    vaultAddress: result.result as string,
+                    leader: allLeaders[index]
+                  };
+                }
+                return null;
+              })
+              .filter((vault): vault is { vaultAddress: string, leader: string } => vault !== null);
+            
+            console.log(`Found ${validVaults.length} follower vaults for user`);
+  
+            // 4. Fetch positions from each follower vault
+            for (const vault of validVaults) {
+              try {
+                let positionCount = 0;
+                let continueChecking = true;
+                const vaultPositions: any[] = [];
+                
+                // Keep trying to fetch positions by index until we get an error
+                while (continueChecking) {
+                  try {
+                    const positionData = await readContract(wagmiConfig, {
+                      address: vault.vaultAddress as `0x${string}`,
+                      abi: ABIS.TribeCopyVault,
+                      functionName: 'positions',
+                      args: [positionCount]
+                    });
+                    
+                    // Handle the result based on its structure
+                    if (Array.isArray(positionData)) {
+                      // If it's an array, extract the values in order based on the contract's return structure
+                      const [protocol, token0, token1, liquidity, tokenId, isActive] = positionData;
+                      vaultPositions.push({
+                        protocol,
+                        token0,
+                        token1,
+                        liquidity,
+                        tokenId,
+                        isActive,
+                        leader: vault.leader,
+                        vaultAddress: vault.vaultAddress
+                      });
+                    } else if (positionData && typeof positionData === 'object') {
+                      // If it's already an object
+                      vaultPositions.push({
+                        ...Object(positionData),
+                        leader: vault.leader,
+                        vaultAddress: vault.vaultAddress
+                      });
+                    }
+                    positionCount++;
+                  } catch (e) {
+                    // No more positions found
+                    continueChecking = false;
+                  }
+                }
+                
+                console.log(`Found ${vaultPositions.length} positions in vault ${vault.vaultAddress}`);
+                
+                // Format and add vault positions
+                const formattedVaultPositions = await formatPositionsResponse(vaultPositions, 'follower');
+                allPositions.push(...formattedVaultPositions);
+                
+              } catch (vaultError) {
+                console.error(`Error fetching positions for vault ${vault.vaultAddress}:`, vaultError);
+              }
+            }
+          }
+        }
+
+        // For leaders, fetch positions directly from the Position Manager contract
+        if (isLeader) {
+          try {
+            console.log('Fetching leader positions directly from Position Manager...');
+            // The Position Manager ABI for checking balanceOf and tokenOfOwnerByIndex
+            const positionManagerAbi = [
+              {
+                "inputs": [{"internalType": "address", "name": "owner", "type": "address"}],
+                "name": "balanceOf",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+              },
+              {
+                "inputs": [
+                  {"internalType": "address", "name": "owner", "type": "address"},
+                  {"internalType": "uint256", "name": "index", "type": "uint256"}
+                ],
+                "name": "tokenOfOwnerByIndex",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+              },
+              {
+                "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+                "name": "positions",
+                "outputs": [
+                  {"internalType": "uint96", "name": "nonce", "type": "uint96"},
+                  {"internalType": "address", "name": "operator", "type": "address"},
+                  {"internalType": "address", "name": "token0", "type": "address"},
+                  {"internalType": "address", "name": "token1", "type": "address"},
+                  {"internalType": "uint24", "name": "fee", "type": "uint24"},
+                  {"internalType": "int24", "name": "tickLower", "type": "int24"},
+                  {"internalType": "int24", "name": "tickUpper", "type": "int24"},
+                  {"internalType": "uint128", "name": "liquidity", "type": "uint128"},
+                  {"internalType": "uint256", "name": "feeGrowthInside0LastX128", "type": "uint256"},
+                  {"internalType": "uint256", "name": "feeGrowthInside1LastX128", "type": "uint256"},
+                  {"internalType": "uint128", "name": "tokensOwed0", "type": "uint128"},
+                  {"internalType": "uint128", "name": "tokensOwed1", "type": "uint128"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+              }
+            ];
+
+            // 1. Get number of positions owned by the leader
+            // Use the Uniswap V3 adapter address which should be the position manager
+            const positionManagerAddress = CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`;
+            const balance = await readContract(wagmiConfig, {
+              address: positionManagerAddress,
+              abi: positionManagerAbi,
+              functionName: 'balanceOf',
+              args: [address as `0x${string}`]
+            });
+            
+            console.log(`Leader owns ${balance} Uniswap V3 position NFTs`);
+            
+            // 2. Loop through and get position details for each
+            const leaderPositions = [];
+            for (let i = 0; i < Number(balance); i++) {
+              try {
+                // Get the token ID for this position
+                const tokenId = await readContract(wagmiConfig, {
+                  address: positionManagerAddress,
+                  abi: positionManagerAbi,
+                  functionName: 'tokenOfOwnerByIndex',
+                  args: [address as `0x${string}`, i]
+                });
+                
+                // Get position details
+                const positionDetails = await readContract(wagmiConfig, {
+                  address: positionManagerAddress,
+                  abi: positionManagerAbi,
+                  functionName: 'positions',
+                  args: [tokenId]
+                });
+                
+                if (Array.isArray(positionDetails)) {
+                  // Extract relevant details
+                  const [
+                    nonce,
+                    operator,
+                    token0,
+                    token1,
+                    fee,
+                    tickLower,
+                    tickUpper,
+                    liquidity,
+                    feeGrowthInside0LastX128,
+                    feeGrowthInside1LastX128,
+                    tokensOwed0,
+                    tokensOwed1
+                  ] = positionDetails;
+                  
+                  leaderPositions.push({
+                    tokenId,
+                    token0,
+                    token1,
+                    fee,
+                    tickLower,
+                    tickUpper,
+                    liquidity,
+                    protocol: 'Uniswap V3', // Assuming it's always Uniswap V3
+                    isActive: Number(liquidity) > 0
+                  });
+                } else {
+                  // If the position details are returned as an object with properties
+                  // We need to use a type assertion since the return type is unknown
+                  const typedPositionDetails = positionDetails as {
+                    token0: string;
+                    token1: string;
+                    fee: number;
+                    tickLower: number;
+                    tickUpper: number;
+                    liquidity: bigint;
+                  };
+                  
+                  leaderPositions.push({
+                    tokenId,
+                    token0: typedPositionDetails.token0,
+                    token1: typedPositionDetails.token1,
+                    fee: typedPositionDetails.fee,
+                    tickLower: typedPositionDetails.tickLower,
+                    tickUpper: typedPositionDetails.tickUpper,
+                    liquidity: typedPositionDetails.liquidity,
+                    protocol: 'Uniswap V3', // Assuming it's always Uniswap V3
+                    isActive: Number(typedPositionDetails.liquidity) > 0
+                  });
+                }
+              } catch (positionError) {
+                console.error(`Error fetching position ${i}:`, positionError);
+              }
+            }
+            
+            // Format and add leader positions
+            const formattedLeaderPositions = await formatPositionsResponse(leaderPositions, 'leader');
+            console.log(`Found ${formattedLeaderPositions.length} leader positions directly`);
+            allPositions.push(...formattedLeaderPositions);
+            
+          } catch (error) {
+            console.error('Error fetching leader positions from Position Manager:', error);
+          }
+        }
+
+        // Only for followers: Fetch from terminal as a backup
+        // This may include both leader and follower positions depending on contract implementation
+        if (!isLeader) {
+          try {
+            console.log('Fetching follower positions from terminal...');
+            // This try/catch might fail if getUserPositions doesn't exist on the contract
+            // But we still attempt it as a fallback for followers
+            const terminalPositionsResponse = await readContract(wagmiConfig, {
               address: CONTRACT_ADDRESSES.LEADER_TERMINAL as `0x${string}`,
               abi: ABIS.TribeLeaderTerminal,
               functionName: 'getUserPositions',
               args: [address as `0x${string}`]
             });
             
-            console.log('Raw leader positions:', leaderPositionsResponse);
-            const leaderPositions = await formatPositionsResponse(leaderPositionsResponse, 'leader');
-            allPositions.push(...leaderPositions);
-          } catch (error) {
-            console.error('Error fetching leader positions:', error);
-          }
-        }
-
-        // 2. Get all registered leaders to check follower vaults
-        let allLeaders: string[] = [];
-        try {
-          allLeaders = await readContract(wagmiConfig, {
-            address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
-            abi: ABIS.TribeLeaderRegistry,
-            functionName: 'getAllLeaders',
-            args: []
-          }) as string[];
-          console.log(`Found ${allLeaders.length} registered leaders`);
-        } catch (error) {
-          console.error('Error fetching all leaders:', error);
-        }
-
-        // 3. Check if user has vaults for each leader
-        if (allLeaders.length > 0) {
-          const vaultFactory = CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`;
-          
-          // Create an array of contract read configurations - need to use specific typing for wagmi
-          const vaultChecks = allLeaders.map(leader => ({
-            address: vaultFactory,
-            abi: ABIS.TribeVaultFactory as any, // Use type assertion to match wagmi's expected types
-            functionName: 'followerVaults',
-            args: [address as `0x${string}`, leader as `0x${string}`]
-          }));
-          
-          // Execute all contract reads in parallel
-          const vaultAddresses = await readContracts(wagmiConfig, {
-            contracts: vaultChecks as any // Use type assertion to match wagmi's expected types
-          });
-          
-          const validVaults = vaultAddresses
-            .map((result, index) => {
-              if (result.status === 'success' && result.result !== '0x0000000000000000000000000000000000000000') {
-                return {
-                  vaultAddress: result.result as string,
-                  leader: allLeaders[index]
-                };
-              }
-              return null;
-            })
-            .filter((vault): vault is { vaultAddress: string, leader: string } => vault !== null);
-          
-          console.log(`Found ${validVaults.length} follower vaults for user`);
-
-          // 4. Fetch positions from each follower vault
-          for (const vault of validVaults) {
-            try {
-              let positionCount = 0;
-              let continueChecking = true;
-              const vaultPositions: any[] = [];
-              
-              // Keep trying to fetch positions by index until we get an error
-              while (continueChecking) {
-                try {
-                  const positionData = await readContract(wagmiConfig, {
-                    address: vault.vaultAddress as `0x${string}`,
-                    abi: ABIS.TribeCopyVault,
-                    functionName: 'positions',
-                    args: [positionCount]
-                  });
-                  
-                  // Handle the result based on its structure
-                  if (Array.isArray(positionData)) {
-                    // If it's an array, extract the values in order based on the contract's return structure
-                    const [protocol, token0, token1, liquidity, tokenId, isActive] = positionData;
-                    vaultPositions.push({
-                      protocol,
-                      token0,
-                      token1,
-                      liquidity,
-                      tokenId,
-                      isActive,
-                      leader: vault.leader,
-                      vaultAddress: vault.vaultAddress
-                    });
-                  } else if (positionData && typeof positionData === 'object') {
-                    // If it's already an object
-                    vaultPositions.push({
-                      ...Object(positionData),
-                      leader: vault.leader,
-                      vaultAddress: vault.vaultAddress
-                    });
-                  }
-                  positionCount++;
-                } catch (e) {
-                  // No more positions found
-                  continueChecking = false;
-                }
-              }
-              
-              console.log(`Found ${vaultPositions.length} positions in vault ${vault.vaultAddress}`);
-              
-              // Format and add vault positions
-              const formattedVaultPositions = await formatPositionsResponse(vaultPositions, 'follower');
-              allPositions.push(...formattedVaultPositions);
-              
-            } catch (vaultError) {
-              console.error(`Error fetching positions for vault ${vault.vaultAddress}:`, vaultError);
+            console.log('Raw terminal positions:', terminalPositionsResponse);
+            
+            // Check if we already have these positions by ID to avoid duplicates
+            const existingIds = new Set(allPositions.map(pos => pos.id));
+            const terminalPositions = await formatPositionsResponse(terminalPositionsResponse, 'terminal');
+            const uniqueTerminalPositions = terminalPositions.filter(pos => !existingIds.has(pos.id));
+            
+            if (uniqueTerminalPositions.length > 0) {
+              console.log(`Adding ${uniqueTerminalPositions.length} unique positions from terminal`);
+              allPositions.push(...uniqueTerminalPositions);
             }
+          } catch (error) {
+            console.error('Error fetching terminal positions:', error);
           }
-        }
-
-        // 5. As a backup, still fetch positions from the Leader Terminal
-        // This may include both leader and follower positions depending on contract implementation
-        try {
-          const terminalPositionsResponse = await readContract(wagmiConfig, {
-            address: CONTRACT_ADDRESSES.LEADER_TERMINAL as `0x${string}`,
-            abi: ABIS.TribeLeaderTerminal,
-            functionName: 'getUserPositions',
-            args: [address as `0x${string}`]
-          });
-          
-          console.log('Raw terminal positions:', terminalPositionsResponse);
-          
-          // Check if we already have these positions by ID to avoid duplicates
-          const existingIds = new Set(allPositions.map(pos => pos.id));
-          const terminalPositions = await formatPositionsResponse(terminalPositionsResponse, 'terminal');
-          const uniqueTerminalPositions = terminalPositions.filter(pos => !existingIds.has(pos.id));
-          
-          if (uniqueTerminalPositions.length > 0) {
-            console.log(`Adding ${uniqueTerminalPositions.length} unique positions from terminal`);
-            allPositions.push(...uniqueTerminalPositions);
-          }
-        } catch (error) {
-          console.error('Error fetching terminal positions:', error);
         }
         
         // Token metadata cache is already updated via setTokenMetadataCache calls
