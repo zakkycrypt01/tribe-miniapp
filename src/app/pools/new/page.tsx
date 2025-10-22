@@ -290,7 +290,7 @@ export default function NewPositionPage() {
         const txHash = await writeContract(wagmiConfig, {
             abi: ABIS.TribeUniswapV3Adapter,
             address: CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`,
-            functionName: 'mintPositionWithRefund',
+            functionName: 'mintPosition',
             args: [mintParams],
             account: address,
         });
