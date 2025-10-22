@@ -317,6 +317,28 @@ export default function NewPositionPage() {
         return receipt;
     };
 
+    // Load pool data from URL parameter and pre-fill token symbols
+    useEffect(() => {
+        if (!poolParam) return;
+
+        try {
+            // Try to find the pool by address
+            const allPools = getUniswapPools();
+            const foundPool = allPools.find(p => p.poolAddress?.toLowerCase() === poolParam.toLowerCase());
+            
+            if (foundPool) {
+                const [token0, token1] = foundPool.pair;
+                console.log('📍 Pre-filling tokens from pool:', { token0: token0.symbol, token1: token1.symbol });
+                setToken1Symbol(token0.symbol);
+                setToken2Symbol(token1.symbol);
+                setPoolAddress(foundPool.poolAddress);
+                setDetectedFee(foundPool.feeTier);
+            }
+        } catch (e) {
+            console.error('Error loading pool data from URL:', e);
+        }
+    }, [poolParam]);
+
     // Auto-convert handlers
     const formatDisplayAmount = _formatDisplayAmount;
 
