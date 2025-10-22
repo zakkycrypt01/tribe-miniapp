@@ -292,7 +292,7 @@ export default function NewPositionPage() {
             abi: ABIS.TribeUniswapV3Adapter,
             address: CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER as `0x${string}`,
             functionName: 'mintPosition',
-            args: [mintParamsArray],
+            args: mintParamsArray,
             account: address,
         });
         const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash });
