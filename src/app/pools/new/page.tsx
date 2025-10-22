@@ -882,78 +882,96 @@ export default function NewPositionPage() {
 
     return (
         <>
-            <main className="flex-1 p-4 md:p-8 lg:p-12 bg-gradient-to-br from-background via-background to-secondary/5">
-                <div className="max-w-6xl mx-auto">
-                    <div className="mb-8">
-                        <div className="text-sm text-muted-foreground mb-4 flex items-center gap-1">
-                            <Link href="/portfolio" className="hover:text-foreground transition-colors">Your positions</Link>
-                            <span className="text-muted-foreground/50">/</span>
-                            <span>New position</span>
+            <main className="flex-1 p-4 md:p-6 lg:p-12 bg-gradient-to-b from-background to-muted/20">
+                <div className="max-w-5xl mx-auto">
+                    <div className="text-sm text-muted-foreground mb-6">
+                        <Link href="/portfolio" className="hover:text-primary transition-colors">Your positions</Link> <span className="mx-2">→</span> <span className="text-foreground font-medium">New position</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <h1 className="text-4xl font-bold mb-1">Create New Position</h1>
+                            <p className="text-muted-foreground">Add liquidity to earn fees on Uniswap V3</p>
                         </div>
-                        
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h1 className="text-4xl font-bold mb-2">Create New Position</h1>
-                                <p className="text-muted-foreground">Add liquidity to earn fees on Uniswap V3</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" className="gap-2">Reset</Button>
-                                <Select defaultValue="v3">
-                                    <SelectTrigger className="w-[140px] h-10 text-sm">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="v2">v2 position</SelectItem>
-                                        <SelectItem value="v3">v3 position</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Button variant="ghost" size="icon" className="h-10 w-10"><Settings className="size-5" /></Button>
-                            </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" className="text-xs">Reset</Button>
+                            <Select defaultValue="v3">
+                                <SelectTrigger className="w-[140px] h-9 text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="v2">v2 position</SelectItem>
+                                    <SelectItem value="v3">v3 position</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground"><Settings className="size-5" /></Button>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                        <div className="lg:col-span-1">
-                            <div className="sticky top-8">
-                                <Stepper>
-                                    {steps.map(step => (
-                                        <Step key={step.id} isCompleted={currentStep > step.id} isActive={currentStep === step.id}>
-                                            <span className="text-xs font-medium text-muted-foreground">Step {step.id}</span>
-                                            <p className="text-sm font-semibold">{step.name}</p>
-                                        </Step>
-                                    ))}
-                                </Stepper>
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                        <div className="md:col-span-1">
+                            <Stepper>
+                                {steps.map(step => (
+                                    <Step key={step.id} isCompleted={currentStep > step.id} isActive={currentStep === step.id}>
+                                        <span className="text-xs">Step {step.id}</span>
+                                        <p className="text-sm font-medium">{step.name}</p>
+                                    </Step>
+                                ))}
+                            </Stepper>
                         </div>
 
-                        <div className="lg:col-span-3">
-                            {currentStep === 1 && (
-                                <Card className="bg-card/50">
-                                    <CardContent className="p-6 space-y-6">
-                                        <div>
-                                            <h3 className="font-semibold mb-1">Select pair</h3>
-                                            <p className="text-sm text-muted-foreground">Choose the tokens you want to provide liquidity for. You can select tokens on all supported networks.</p>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex-1">
-                                                <TokenSelector tokens={tokens} value={token1Symbol} onChange={setToken1Symbol} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <TokenSelector tokens={tokens} value={token2Symbol} onChange={setToken2Symbol} />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold mb-1">Fee tier</h3>
-                                            <p className="text-sm text-muted-foreground">The amount earned providing liquidity. All v2 pools have fixed 0.3% fees. For more options, provide liquidity on v3.</p>
-                                        </div>
-                                        <Button size="lg" className="w-full h-12 text-base" onClick={() => setCurrentStep(2)} disabled={!poolAddress}>Continue</Button>
-                                    </CardContent>
-                                </Card>
-                            )}
+                        <div className="md:col-span-2">
+                            
+                                
+                                    {currentStep === 1 && (
+                                        <Card className="bg-background/95 border-primary/10 shadow-lg">
+                                            <CardContent className="p-8 space-y-8">
+                                                <div>
+                                                    <h3 className="font-bold text-lg mb-2">Select Token Pair</h3>
+                                                    <p className="text-sm text-muted-foreground">Choose the tokens you want to provide liquidity for.</p>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex-1">
+                                                        <label className="text-sm font-medium mb-2 block">Token 1</label>
+                                                        <TokenSelector tokens={tokens} value={token1Symbol} onChange={setToken1Symbol} />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <label className="text-sm font-medium mb-2 block">Token 2</label>
+                                                        <TokenSelector tokens={tokens} value={token2Symbol} onChange={setToken2Symbol} />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-lg mb-2">Fee Tier</h3>
+                                                    <p className="text-sm text-muted-foreground mb-4">Select the fee tier. Higher fees suit lower volatility pairs.</p>
+                                                    {isFetchingPoolAddress ? (
+                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                            <Loader2 className="h-4 w-4 animate-spin" /> Detecting pools...
+                                                        </div>
+                                                    ) : availableFeePools.length > 0 ? (
+                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                            {availableFeePools.map(a => (
+                                                                <Button 
+                                                                    key={a.fee} 
+                                                                    variant={a.fee === feeToUse ? 'default' : 'outline'} 
+                                                                    onClick={() => { setSelectedFee(a.fee); setPoolAddress(a.poolAddress); setDetectedFee(a.fee); }}
+                                                                    className="h-10 font-medium"
+                                                                >
+                                                                    {(a.fee/10000).toFixed(2)}%
+                                                                </Button>
+                                                            ))}
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                                <Button size="lg" className="w-full h-12 text-base font-medium" onClick={() => setCurrentStep(2)} disabled={!poolAddress}>
+                                                    Continue to Deposit
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+                                    )}
                                     {currentStep === 2 && (
                                         <div className="space-y-6">
-                                            <Card className="bg-card/50">
-                                                <CardContent className="p-4 flex justify-between items-center">
+                                            <Card className="bg-background/95 border-primary/10 shadow-lg">
+                                                <CardContent className="p-6 flex justify-between items-center">
                                                     <div className="flex items-center gap-3">
                                                         <div className="flex -space-x-2">
                                                             <Image src={token1.icon.imageUrl} alt={token1.name} width={28} height={28} className="rounded-full border-2 border-background" data-ai-hint={token1.icon.imageHint}/>
@@ -1022,17 +1040,17 @@ export default function NewPositionPage() {
                                                     </div>
                                                 </CardContent>
                                             </Card> */}
-                                            <Card className="bg-card/50">
+                                            <Card className="bg-background/95 border-primary/10 shadow-lg">
                                                 <CardHeader>
-                                                    <CardTitle>Deposit tokens</CardTitle>
-                                                    <CardDescription>Specify the token amounts for your liquidity contribution.</CardDescription>
+                                                    <CardTitle className="text-lg font-bold">Deposit Tokens</CardTitle>
+                                                    <CardDescription>Enter the amounts for your liquidity contribution.</CardDescription>
                                                 </CardHeader>
-                                                <CardContent className="space-y-4">
+                                                <CardContent className="space-y-6">
                                                     <AmountInput token={token1} value={amount1} onChange={handleAmount1Change} onFocus={() => setLastEdited('amount1')} marketPrice={marketPrice} otherSymbol={token2.symbol} isBase={true} balance={balance1} />
                                                     <AmountInput token={token2} value={amount2} onChange={handleAmount2Change} onFocus={() => setLastEdited('amount2')} marketPrice={marketPrice} otherSymbol={token1.symbol} isBase={false} balance={balance2} />
 
-                                                    <Button size="lg" className="w-full h-12 text-base" disabled={!amount1 || !amount2} onClick={() => setShowReviewDialog(true)}>
-                                                        {!amount1 || !amount2 ? "Enter an amount" : "Review"}
+                                                    <Button size="lg" className="w-full h-12 text-base font-medium bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80" disabled={!amount1 || !amount2} onClick={() => setShowReviewDialog(true)}>
+                                                        {!amount1 || !amount2 ? "Enter amounts for both tokens" : "Review & Continue"}
                                                     </Button>
 
                                                 </CardContent>
@@ -1078,25 +1096,25 @@ export default function NewPositionPage() {
                                 <AreaChart className="w-40 h-16 text-primary/30" />
                             </div> */}
 
-                            <div className="grid grid-cols-2 gap-3 bg-secondary/30 rounded-lg p-4">
+                            <div className="grid grid-cols-2 gap-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/10">
                                 <div className="text-center">
-                                    <p className="text-xs text-muted-foreground mb-1">Min Price</p>
-                                    <p className="font-semibold text-sm">{minPrice}</p>
+                                    <p className="text-xs text-muted-foreground mb-2 font-medium">Min Price</p>
+                                    <p className="font-bold text-sm text-foreground">{minPrice}</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-xs text-muted-foreground mb-1">Max Price</p>
-                                    <p className="font-semibold text-sm">{maxPrice === 'Infinity' ? '∞' : maxPrice}</p>
+                                    <p className="text-xs text-muted-foreground mb-2 font-medium">Max Price</p>
+                                    <p className="font-bold text-sm text-foreground">{maxPrice === 'Infinity' ? '∞' : maxPrice}</p>
                                 </div>
                             </div>
 
-                            <div className="bg-secondary/30 rounded-lg p-4 space-y-4">
-                                <h3 className="text-sm font-semibold">Depositing</h3>
+                            <div className="bg-gradient-to-br from-background to-muted/30 rounded-lg p-4 space-y-4 border border-primary/5">
+                                <h3 className="text-sm font-bold text-foreground">Depositing</h3>
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-between p-3 bg-background rounded-lg">
-                                        <div className="flex items-center gap-2">
-                                            <Image src={token1.icon.imageUrl} alt={token1.name} width={24} height={24} className="rounded-full" data-ai-hint={token1.icon.imageHint}/>
+                                    <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-primary/10 hover:border-primary/20 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <Image src={token1.icon.imageUrl} alt={token1.name} width={28} height={28} className="rounded-full ring-2 ring-background" data-ai-hint={token1.icon.imageHint}/>
                                             <div>
-                                                <p className="font-semibold text-sm">{amount1}</p>
+                                                <p className="font-bold text-sm text-foreground">{amount1}</p>
                                                 <p className="text-xs text-muted-foreground">{token1.symbol}</p>
                                             </div>
                                         </div>
@@ -1104,11 +1122,11 @@ export default function NewPositionPage() {
                                             {marketPrice ? `≈ ${(Number(amount1) * marketPrice).toFixed(8)} ${token2.symbol}` : '—'}
                                         </div>
                                     </div>
-                                    <div className="flex items-center justify-between p-3 bg-background rounded-lg">
-                                        <div className="flex items-center gap-2">
-                                            <Image src={token2.icon.imageUrl} alt={token2.name} width={24} height={24} className="rounded-full" data-ai-hint={token2.icon.imageHint}/>
+                                    <div className="flex items-center justify-between p-3 bg-background rounded-lg border border-primary/10 hover:border-primary/20 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <Image src={token2.icon.imageUrl} alt={token2.name} width={28} height={28} className="rounded-full ring-2 ring-background" data-ai-hint={token2.icon.imageHint}/>
                                             <div>
-                                                <p className="font-semibold text-sm">{amount2}</p>
+                                                <p className="font-bold text-sm text-foreground">{amount2}</p>
                                                 <p className="text-xs text-muted-foreground">{token2.symbol}</p>
                                             </div>
                                         </div>
@@ -1119,8 +1137,8 @@ export default function NewPositionPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-secondary/30 rounded-lg p-4 space-y-3">
-                                <h4 className="text-sm font-semibold">Estimated position</h4>
+                            <div className="bg-gradient-to-br from-background to-muted/30 rounded-lg p-4 space-y-3 border border-primary/5">
+                                <h4 className="text-sm font-bold text-foreground">Estimated Position</h4>
                                 {isCalculating ? (
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                                         <Loader2 className="h-4 w-4 animate-spin" /> Calculating...
@@ -1153,18 +1171,18 @@ export default function NewPositionPage() {
                                 )}
                             </div>
 
-                            <div className="bg-secondary/30 rounded-lg p-4">
-                                <div className="flex justify-between items-center mb-3">
-                                    <p className="text-sm text-muted-foreground">Network cost</p>
-                                    <p className="font-semibold">$2.14</p>
+                            <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/10">
+                                <div className="flex justify-between items-center mb-2">
+                                    <p className="text-sm font-medium text-muted-foreground">Network Cost</p>
+                                    <p className="font-bold text-foreground">$2.14</p>
                                 </div>
                                 {preflightError && (
-                                    <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded p-2">{preflightError}</div>
+                                    <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded p-3 mt-2">{preflightError}</div>
                                 )}
                             </div>
 
-                            <Button size="lg" className="w-full h-11 text-base font-medium" onClick={handleCreate} disabled={isCalculating || isFetchingMarketPrice || !!preflightError}>
-                                {preflightError ? 'Fix error to create' : 'Create position'}
+                            <Button size="lg" className="w-full h-12 text-base font-medium bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80" onClick={handleCreate} disabled={isCalculating || isFetchingMarketPrice || !!preflightError}>
+                                {preflightError ? 'Fix Error to Create' : 'Create Position'}
                             </Button>
                         </div>
                     )}                    {creationStep !== 'review' && (
@@ -1181,30 +1199,32 @@ export default function NewPositionPage() {
                                 <AreaChart className="w-40 h-16 text-primary/30" />
                             </div> */}
 
-                            <div className="space-y-4">
-                                <div className="flex items-start gap-3 p-4 bg-secondary/30 rounded-lg">
+                            <div className="space-y-3">
+                                <div className={cn("flex items-start gap-3 p-4 rounded-lg transition-all", creationStep === 'approving' || creationStep === 'confirming' || creationStep === 'complete' ? 'bg-gradient-to-r from-green-500/10 to-green-500/5 border border-green-500/20' : 'bg-secondary/30 border border-transparent')}>
                                     {creationStep === 'approving' ? (
                                         <Loader2 className="size-5 text-primary animate-spin mt-0.5 flex-shrink-0" />
-                                    ) : (
+                                    ) : creationStep === 'confirming' || creationStep === 'complete' ? (
                                         <CheckCircle className="size-5 text-green-500 mt-0.5 flex-shrink-0" />
+                                    ) : (
+                                        <Circle className="size-5 text-muted-foreground/50 mt-0.5 flex-shrink-0" />
                                     )}
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm">Approve tokens</p>
+                                        <p className="font-bold text-sm">Approve Tokens</p>
                                         <p className="text-xs text-muted-foreground mt-1">Allow the contract to spend your tokens</p>
-                                        <a href="#" className="text-xs text-primary hover:underline mt-2 inline-block">Why do I need to approve?</a>
+                                        <a href="#" className="text-xs text-primary hover:text-primary/80 transition-colors mt-2 inline-block">Why do I need to approve?</a>
                                     </div>
                                 </div>
 
-                                <div className="flex items-start gap-3 p-4 bg-secondary/30 rounded-lg">
-                                    {creationStep === 'approving' ? (
-                                        <Circle className="size-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                                    ) : creationStep === 'confirming' ? (
+                                <div className={cn("flex items-start gap-3 p-4 rounded-lg transition-all", creationStep === 'confirming' || creationStep === 'complete' ? 'bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20' : 'bg-secondary/30 border border-transparent', creationStep === 'approving' && "opacity-50")}>
+                                    {creationStep === 'confirming' ? (
                                         <Loader2 className="size-5 text-primary animate-spin mt-0.5 flex-shrink-0" />
-                                    ) : (
+                                    ) : creationStep === 'complete' ? (
                                         <CheckCircle className="size-5 text-green-500 mt-0.5 flex-shrink-0" />
+                                    ) : (
+                                        <Circle className="size-5 text-muted-foreground/50 mt-0.5 flex-shrink-0" />
                                     )}
-                                    <div className={cn("flex-1 min-w-0", creationStep === 'approving' && "opacity-50")}>
-                                        <p className="font-semibold text-sm">Confirm transaction</p>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-sm">Confirm Transaction</p>
                                         <p className="text-xs text-muted-foreground mt-1">Create your liquidity position on Uniswap V3</p>
                                     </div>
                                 </div>
@@ -1212,11 +1232,11 @@ export default function NewPositionPage() {
 
                             {creationStep === 'complete' && (
                                 <div className="space-y-4">
-                                    <div className="flex items-center justify-center p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                                        <CheckCircle className="size-6 text-green-500 mr-2" />
-                                        <span className="font-semibold text-green-600">Position created successfully!</span>
+                                    <div className="flex items-center justify-center p-4 bg-gradient-to-r from-green-500/10 to-green-500/5 border border-green-500/20 rounded-lg">
+                                        <CheckCircle className="size-6 text-green-500 mr-3" />
+                                        <span className="font-bold text-green-600">Position Created Successfully!</span>
                                     </div>
-                                    <Button size="lg" className="w-full h-11 text-base font-medium" onClick={handleDone}>Done</Button>
+                                    <Button size="lg" className="w-full h-12 text-base font-medium bg-gradient-to-r from-green-600 to-green-600/90 hover:from-green-600/90 hover:to-green-600/80 text-white" onClick={handleDone}>View Position</Button>
                                 </div>
                             )}
                          </div>
