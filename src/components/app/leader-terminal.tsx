@@ -42,7 +42,7 @@ export function LeaderTerminal({ tokens }: { tokens: Token[] }) {
                     </Card>
                 </TabsContent>
                 <TabsContent value="positions" className="pt-6 space-y-6">
-                    <LpPositions positions={lpPositions} />
+                    <LpPositions/>
                 </TabsContent>
                 <TabsContent value="history" className="pt-6 space-y-6">
                     <ActionHistory history={actionHistory} />

@@ -122,7 +122,7 @@ function LeaderProfileView() {
         </Card>
       </div>
 
-      <LpPositions positions={lpPositions} />
+      <LpPositions />
       <ActionHistory history={actionHistory} />
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
