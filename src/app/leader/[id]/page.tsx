@@ -1,7 +1,7 @@
 
 "use client";
 
-import { getLeaderData, getLpPositions } from "@/app/lib/mock-data";
+import { getLpPositions } from "@/app/lib/mock-data";
 import { notFound, useParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -10,11 +10,78 @@ import { CheckCircle, Copy, Loader2 } from "lucide-react";
 import { PerformanceChart } from "@/components/app/performance-chart";
 import { LpPositions } from "@/components/app/lp-positions";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useReadContract } from "wagmi";
+import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
+import type { Leader } from "@/app/lib/types";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
+
+const mapContractLeaderToLeader = (contractLeader: any): Leader => {
+  const imageMap = new Map(PlaceHolderImages.map(img => [img.id, img]));
+  const defaultAvatar = imageMap.get('avatar-1')!;
+  
+  // Contract returns: [wallet, strategyName, description, isActive, registrationTime, totalFollowers, totalTvl, performanceFeePercent]
+  const wallet = contractLeader[0] || '';
+  const strategyName = contractLeader[1] || '';
+  const description = contractLeader[2] || '';
+  const isActive = contractLeader[3] || false;
+  const registrationTime = contractLeader[4] || 0;
+  const totalFollowers = contractLeader[5] || 0;
+  const totalTvl = contractLeader[6] || 0n;
+  const performanceFeePercent = contractLeader[7] || 0;
+  
+  console.log('🔄 Mapping contract data:', { 
+    wallet, 
+    strategyName, 
+    description, 
+    isActive, 
+    registrationTime,
+    totalFollowers,
+    totalTvl: Number(totalTvl),
+    performanceFeePercent
+  });
+  console.log('📍 Array breakdown:', {
+    '[0] wallet': contractLeader[0],
+    '[1] strategyName': contractLeader[1],
+    '[2] description': contractLeader[2],
+    '[3] isActive': contractLeader[3],
+    '[4] registrationTime': contractLeader[4],
+    '[5] totalFollowers': contractLeader[5],
+    '[6] totalTvl': contractLeader[6],
+    '[7] performanceFeePercent': contractLeader[7],
+  });
+  
+  return {
+    id: wallet,
+    name: strategyName,
+    avatar: defaultAvatar,
+    walletAddress: wallet,
+    strategyDescription: description,
+    apy30d: 0,
+    totalFees: performanceFeePercent / 100, // Convert basis points (1000 = 1%) to percentage
+    riskScore: 'Low', 
+    followers: Number(totalFollowers),
+    tvl: Number(totalTvl),
+    maxDrawdown: 0,
+    historicalApy: [
+      { date: '2025-01-01', apy: 0 },
+      { date: '2025-02-01', apy: 0 },
+      { date: '2025-03-01', apy: 0 },
+      { date: '2025-04-01', apy: 0 },
+      { date: '2025-05-01', apy: 0 },
+      { date: '2025-06-01', apy: 0 },
+    ],
+    followersPnl: 0,
+    winRate: 0,
+    sharpeRatio: 0,
+    followerCount: Number(totalFollowers),
+    maxFollowers: 0,
+  };
+};
 
 type StatCardProps = {
     icon?: React.ElementType;
@@ -41,9 +108,36 @@ function StatCard({ icon: Icon, title, value, description, valueClassName}: Stat
 
 export default function LeaderProfilePage() {
   const params = useParams();
-  const id = typeof params.id === 'string' ? params.id : '';
-  const leader = getLeaderData(id);
-  const lpPositions = getLpPositions(id);
+  const walletAddress = typeof params.id === 'string' ? decodeURIComponent(params.id) : '';
+  
+  console.log('🔍 Loading leader profile for:', walletAddress);
+
+  // Use the hook to fetch leader data
+  const { data: contractLeader, isLoading, error } = useReadContract({
+    address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
+    abi: ABIS.TribeLeaderRegistry,
+    functionName: "leaders",
+    args: [walletAddress as `0x${string}`],
+    query: { enabled: !!walletAddress },
+  });
+
+  useEffect(() => {
+    if (contractLeader) {
+      console.log('📊 Fetched leader profile from contract:', contractLeader);
+    }
+    if (error) {
+      console.error('❌ Error fetching leader profile:', error);
+    }
+  }, [contractLeader, error]);
+
+  const leader = useMemo(() => {
+    if (!contractLeader) return null;
+    const mappedLeader = mapContractLeaderToLeader(contractLeader);
+    console.log('✅ Mapped leader:', mappedLeader);
+    return mappedLeader;
+  }, [contractLeader]);
+
+  const lpPositions = leader ? getLpPositions(leader.id) : [];
   
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [copyAmount, setCopyAmount] = useState('');
@@ -52,8 +146,26 @@ export default function LeaderProfilePage() {
   const [isDepositing, setIsDepositing] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
 
-  if (!leader) {
-    notFound();
+  if (isLoading || !leader) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Loading leader profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-destructive mb-4">Failed to load leader profile</p>
+          <p className="text-sm text-muted-foreground">{String(error)}</p>
+        </div>
+      </div>
+    );
   }
 
   const handleCopyConfirm = () => {
@@ -106,7 +218,7 @@ export default function LeaderProfilePage() {
         
         <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard title="30d Net APY" value={`+${leader.apy30d.toFixed(2)}%`} valueClassName="text-green-400" />
-          <StatCard title="Total Fees Earned" value={`$${leader.totalFees.toLocaleString()}`} />
+          <StatCard title="Performance Fee" value={`${leader.totalFees.toFixed(2)}%`} />
           <StatCard title="TVL" value={`$${leader.tvl.toLocaleString()}`} />
           <StatCard title="Followers" value={leader.followers.toLocaleString()} />
           <StatCard title="Risk Score" value={leader.riskScore} />

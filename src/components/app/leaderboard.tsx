@@ -11,7 +11,7 @@ import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { ArrowRight, Crown, HelpCircle, Users } from "lucide-react";
 
 const LeaderCard = ({ leader }: { leader: Leader }) => (
-  <Link href={`/leader/${leader.id}`} className="block">
+  <Link href={`/leader/${encodeURIComponent(leader.walletAddress)}`} className="block">
     <Card className="hover:bg-card/80 transition-colors bg-gradient-to-br from-white/5 to-white/0 border-white/10 rounded-xl overflow-hidden">
       <CardContent className="p-4 flex flex-col gap-4">
         <div className="flex items-center justify-between">
