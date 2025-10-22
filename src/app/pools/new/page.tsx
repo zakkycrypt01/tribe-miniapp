@@ -185,10 +185,18 @@ export default function NewPositionPage() {
         const amtB = parseUnits((amount2 || '0') as `${number}` as unknown as string, decB);
         if (amtA === 0n || amtB === 0n) throw new Error('Amounts must be greater than zero');
 
+        // Determine token order (Uniswap requires token0 < token1)
         const token0 = addrA.toLowerCase() < addrB.toLowerCase() ? addrA : addrB;
         const token1 = token0 === addrA ? addrB : addrA;
         let amount0Desired = token0 === addrA ? amtA : amtB;
         let amount1Desired = token0 === addrA ? amtB : amtA;
+        
+        console.log('Token ordering:', {
+            token0Address: token0,
+            token1Address: token1,
+            amount0Desired: amount0Desired.toString(),
+            amount1Desired: amount1Desired.toString()
+        });
 
         // If one side is zero, attempt to compute the optimal counterpart using SDK
 
@@ -282,20 +290,49 @@ export default function NewPositionPage() {
             tickUpper,
             amount0Desired,
             amount1Desired,
-            0n,
-            0n,
-            address as `0x${string}`,
+            amount0Desired * 995n / 1000n, // amount0Min with 0.5% slippage
+            amount1Desired * 995n / 1000n, // amount1Min with 0.5% slippage
         ];
 
-        const txHash = await writeContract(wagmiConfig, {
-            abi: ABIS.TribeLeaderTerminal,
-            address: CONTRACT_ADDRESSES.LEADER_TERMINAL as `0x${string}`,
-            functionName: 'addLiquidityUniswapV3',
-            args: mintParamsArray,
-            account: address,
-        });
-        const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash });
-        return receipt;
+        // First approve tokens just like the Solidity script does
+        try {
+            console.log('Approving token0...');
+            const approveToken0Hash = await writeContract(wagmiConfig, {
+                abi: erc20Abi,
+                address: token0,
+                functionName: 'approve',
+                args: [CONTRACT_ADDRESSES.LEADER_TERMINAL as `0x${string}`, amount0Desired],
+                account: address,
+            });
+            await waitForTransactionReceipt(wagmiConfig, { hash: approveToken0Hash });
+            console.log('Token0 approved.');
+            
+            console.log('Approving token1...');
+            const approveToken1Hash = await writeContract(wagmiConfig, {
+                abi: erc20Abi,
+                address: token1,
+                functionName: 'approve',
+                args: [CONTRACT_ADDRESSES.LEADER_TERMINAL as `0x${string}`, amount1Desired],
+                account: address,
+            });
+            await waitForTransactionReceipt(wagmiConfig, { hash: approveToken1Hash });
+            console.log('Token1 approved.');
+            
+            console.log('Adding liquidity with:', mintParamsArray);
+            const txHash = await writeContract(wagmiConfig, {
+                abi: ABIS.TribeLeaderTerminal,
+                address: CONTRACT_ADDRESSES.LEADER_TERMINAL as `0x${string}`,
+                functionName: 'addLiquidityUniswapV3',
+                args: mintParamsArray,
+                account: address,
+            });
+            const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash });
+            console.log('Liquidity position created. Receipt:', receipt);
+            return receipt;
+        } catch (error) {
+            console.error('Failed to create liquidity position:', error);
+            throw error;
+        }
     };
 
     // Load pool data from URL parameter and pre-fill token symbols
