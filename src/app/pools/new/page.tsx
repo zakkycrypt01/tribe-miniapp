@@ -185,7 +185,6 @@ export default function NewPositionPage() {
         const amtB = parseUnits((amount2 || '0') as `${number}` as unknown as string, decB);
         if (amtA === 0n || amtB === 0n) throw new Error('Amounts must be greater than zero');
 
-        // Determine token order (Uniswap requires token0 < token1)
         const token0 = addrA.toLowerCase() < addrB.toLowerCase() ? addrA : addrB;
         const token1 = token0 === addrA ? addrB : addrA;
         let amount0Desired = token0 === addrA ? amtA : amtB;
@@ -198,16 +197,13 @@ export default function NewPositionPage() {
             amount1Desired: amount1Desired.toString()
         });
 
-        // If one side is zero, attempt to compute the optimal counterpart using SDK
 
         if (tokenAObj && tokenBObj) {
-            // Determine pool token ordering
             const token0Obj = tokenAObj.sortsBefore(tokenBObj) ? tokenAObj : tokenBObj;
             const token1Obj = token0Obj === tokenAObj ? tokenBObj : tokenAObj;
 
             if ((amtA === 0n && amtB > 0n) || (amtB === 0n && amtA > 0n)) {
                 try {
-                    // tokenIn is the one user supplied
                     const isAInput = amtA > 0n;
                     const tokenInObj = isAInput ? tokenAObj : tokenBObj;
                     const tokenOutObj = isAInput ? tokenBObj : tokenAObj;
@@ -220,11 +216,9 @@ export default function NewPositionPage() {
                         amountIn
                     );
 
-                    // optimal.amount0/amount1 correspond to pool token0 & token1
                     const parsed0 = parseUnits(optimal.amount0, token0Obj.decimals);
                     const parsed1 = parseUnits(optimal.amount1, token1Obj.decimals);
 
-                    // Map parsed0/parsed1 back to amount0Desired/amount1Desired based on token0 address
                     if (token0Obj.address.toLowerCase() === addrA.toLowerCase()) {
                         amount0Desired = parsed0;
                         amount1Desired = parsed1;
@@ -238,9 +232,7 @@ export default function NewPositionPage() {
             }
         }
 
-    // Fee tier auto-detected from available pools (fallback to 0.3% if not found)
     const fee: number = feeToUse;
-    // Use computed ticks if available, otherwise fall back to full range
     const tickLower = computedTickLower ?? -887220;
     const tickUpper = computedTickUpper ?? 887220;
 
@@ -265,8 +257,6 @@ export default function NewPositionPage() {
             0n,
             0n,
         ];
-
-        // First approve tokens just like the Solidity script does
         try {
             console.log('Approving token0...');
             const approveToken0Hash = await writeContract(wagmiConfig, {
@@ -302,20 +292,16 @@ export default function NewPositionPage() {
             console.log('Liquidity position created. Receipt:', receipt);
             return receipt;
         } catch (error: any) {
-            console.error('Failed to create liquidity position:', error);
-            
-            // General error handling
+            console.error('Failed to create liquidity position:', error);            
             setPreflightError(`Transaction failed: ${error?.shortMessage || error?.message || 'Unknown error'}`);
             throw error;
         }
     };
 
-    // Load pool data from URL parameter and pre-fill token symbols
     useEffect(() => {
         if (!poolParam) return;
 
         try {
-            // Try to find the pool by address
             const allPools = getUniswapPools();
             const foundPool = allPools.find(p => p.poolAddress?.toLowerCase() === poolParam.toLowerCase());
             
@@ -332,7 +318,6 @@ export default function NewPositionPage() {
         }
     }, [poolParam]);
 
-    // Auto-convert handlers
     const formatDisplayAmount = _formatDisplayAmount;
 
     const handleAmount1Change = (value: string) => {
@@ -347,7 +332,6 @@ export default function NewPositionPage() {
         setAmount2(value);
     };
 
-    // Debounced conversion effect using market price for accurate conversions
     useEffect(() => {
         if (!marketPrice || marketPrice <= 0) {
             console.log('⏭️ Skipping conversion: no valid market price');
