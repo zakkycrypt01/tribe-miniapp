@@ -124,7 +124,6 @@ export default function NewPositionPage() {
     const searchParams = useSearchParams();
     const poolParam = searchParams ? searchParams.get('pool') : null;
 
-    // Helper to map UI symbol to Uniswap SDK Token objects
     const mapBySymbol = (sym: string) => {
         if (sym === 'USDC') return USDC_TOKEN;
         if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
@@ -137,7 +136,6 @@ export default function NewPositionPage() {
     const [token2Symbol, setToken2Symbol] = useState('ETH');
     const [amount1, setAmount1] = useState('');
     const [amount2, setAmount2] = useState('');
-    // track which input was last edited to avoid conversion loops
     const [lastEdited, setLastEdited] = useState<'amount1' | 'amount2' | null>(null);
     const [rangeType, setRangeType] = useState('custom');
     const [showReviewDialog, setShowReviewDialog] = useState(false);
@@ -237,7 +235,7 @@ export default function NewPositionPage() {
     const tickUpper = computedTickUpper ?? 887220;
 
         
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
 
         console.log('Using Solidity script approach with zero minimums:', {
             amount0Desired: amount0Desired.toString(),
@@ -258,27 +256,6 @@ export default function NewPositionPage() {
             0n,
         ];
         try {
-            console.log('Approving token0...');
-            const approveToken0Hash = await writeContract(wagmiConfig, {
-                abi: erc20Abi,
-                address: token0,
-                functionName: 'approve',
-                args: [CONTRACT_ADDRESSES.LEADER_TERMINAL as `0x${string}`, amount0Desired],
-                account: address,
-            });
-            await waitForTransactionReceipt(wagmiConfig, { hash: approveToken0Hash });
-            console.log('Token0 approved.');
-            
-            console.log('Approving token1...');
-            const approveToken1Hash = await writeContract(wagmiConfig, {
-                abi: erc20Abi,
-                address: token1,
-                functionName: 'approve',
-                args: [CONTRACT_ADDRESSES.LEADER_TERMINAL as `0x${string}`, amount1Desired],
-                account: address,
-            });
-            await waitForTransactionReceipt(wagmiConfig, { hash: approveToken1Hash });
-            console.log('Token1 approved.');
             
             console.log('Adding liquidity with:', mintParamsArray);
             const txHash = await writeContract(wagmiConfig, {
@@ -349,10 +326,7 @@ export default function NewPositionPage() {
                     const n = Number(amount1);
                     console.log(`📝 Converting amount1:`, { amount1, n });
                     if (!isNaN(n) && isFinite(n) && n > 0) {
-                        // amount1 is in tokenA (USDC), convert to tokenB (WBTC)
-                        // marketPrice = WBTC per USDC
                         const converted = n * marketPrice;
-                        // Format to avoid scientific notation
                         const formatted = converted.toLocaleString('en-US', { 
                             useGrouping: false, 
                             minimumFractionDigits: 0,
@@ -365,10 +339,7 @@ export default function NewPositionPage() {
                     const n = Number(amount2);
                     console.log(`📝 Converting amount2:`, { amount2, n });
                     if (!isNaN(n) && isFinite(n) && n > 0) {
-                        // amount2 is in tokenB (WBTC), convert to tokenA (USDC)
-                        // If marketPrice = WBTC per USDC, then USDC per WBTC = 1 / marketPrice
                         const converted = n / marketPrice;
-                        // Format to avoid scientific notation
                         const formatted = converted.toLocaleString('en-US', { 
                             useGrouping: false, 
                             minimumFractionDigits: 0,
@@ -393,7 +364,6 @@ export default function NewPositionPage() {
 
     const handleCreate = async () => {
         try {
-            // Clear previous errors when retrying
             setPreflightError(null);
             
             if (!publicClient || !address) throw new Error('Wallet or client not connected');
@@ -407,7 +377,6 @@ export default function NewPositionPage() {
 
             setCreationStep('approving');
             
-            // Approve tokens if needed
             const tokenAObj = mapBySymbol(token1Symbol);
             const tokenBObj = mapBySymbol(token2Symbol);
             if (!tokenAObj || !tokenBObj) throw new Error('Invalid token');
@@ -420,10 +389,8 @@ export default function NewPositionPage() {
             const wantA = parseUnits(amount1 || '0', decA);
             const wantB = parseUnits(amount2 || '0', decB);
             
-            // Large approval amount (10^18 of the token with full decimals)
-            const maxApproval = parseUnits('100000000000000', decA); // Large amount
+            const maxApproval = parseUnits('100000000000000', decA); 
             
-            // Check and approve token0 if needed
             const allowanceA = await publicClient.readContract({ 
                 address: addrA, 
                 abi: erc20Abi, 
@@ -451,7 +418,6 @@ export default function NewPositionPage() {
                 console.log(`${tokenAObj.symbol} already has sufficient allowance`);
             }
             
-            // Check and approve token1 if needed
             const allowanceB = await publicClient.readContract({ 
                 address: addrB, 
                 abi: erc20Abi, 
@@ -489,7 +455,6 @@ export default function NewPositionPage() {
         }
     }
 
-    // Fetch token balances for the selected tokens
     useEffect(() => {
         let cancelled = false;
         const fetchBalances = async () => {
@@ -535,7 +500,6 @@ export default function NewPositionPage() {
                 if (cancelled) return;
 
                 console.log('Raw balances:', raw1, raw2);
-                // publicClient.readContract for balanceOf returns a bigint-like value
                 const bal1 = formatUnits(raw1 as bigint, t1.decimals);
                 const bal2 = formatUnits(raw2 as bigint, t2.decimals);
                 console.log('Formatted balances:', bal1, bal2);
@@ -573,7 +537,6 @@ export default function NewPositionPage() {
         const addrA = tokenAObj.address as `0x${string}`;
         const addrB = tokenBObj.address as `0x${string}`;
 
-        // Check pool existence across common fee tiers
         try {
             const tokenA = (token1Symbol === 'USDC' ? USDC_TOKEN : (token1Symbol === 'WETH' ? WETH_TOKEN : token1Symbol === 'WBTC' ? WBTC_TOKEN : UNI_TOKEN));
             const tokenB = (token2Symbol === 'USDC' ? USDC_TOKEN : (token2Symbol === 'WETH' ? WETH_TOKEN : token2Symbol === 'WBTC' ? WBTC_TOKEN : UNI_TOKEN));
@@ -582,9 +545,7 @@ export default function NewPositionPage() {
                 setPreflightError(`Pool does not exist for selected tokens at fee tiers: ${FEE_TIERS.map(f => (f/10000).toFixed(2)+'%').join(', ')}`);
                 return false;
             }
-            // Store detected fee and pool address for the session
             setDetectedFee(info.fee);
-            // If user already selected a fee, prefer that pool if available
             const preferred = availableFeePools.find(p => p.fee === (selectedFee ?? info.fee));
             if (preferred) {
                 setPoolAddress(preferred.poolAddress);
@@ -597,7 +558,6 @@ export default function NewPositionPage() {
             return false;
         }
 
-        // Check balances
         try {
             const decA = tokenAObj.decimals ?? 18;
             const decB = tokenBObj.decimals ?? 18;
@@ -605,7 +565,6 @@ export default function NewPositionPage() {
             const wantA = parseUnits(amount1 || '0', decA);
             const wantB = parseUnits(amount2 || '0', decB);
 
-            // Read balances
             const balanceA = await publicClient.readContract({ address: addrA as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] });
             const balanceB = await publicClient.readContract({ address: addrB as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] });
 
@@ -618,7 +577,6 @@ export default function NewPositionPage() {
                 return false;
             }
 
-            // Ensure desired amounts are non-zero to avoid mint failures
             if (wantA === 0n || wantB === 0n) {
                 setPreflightError('Both token amounts must be greater than zero');
                 return false;
@@ -674,7 +632,6 @@ export default function NewPositionPage() {
                 return;
             }
 
-            // Map to Uniswap Token constants
             const mapBySymbol = (sym: string) => {
                 if (sym === 'USDC') return USDC_TOKEN;
                 if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
@@ -700,7 +657,6 @@ export default function NewPositionPage() {
                     setPoolAddress(chosen);
                     setDetectedFee(info.fee);
                     setSelectedFee(info.fee);
-                    // Try to find additional available fee pools
                     try {
                         const all = await findAllPoolsForPair(publicClient, tokenA, tokenB, FEE_TIERS);
                         setAvailableFeePools(all.map(a => ({ fee: a.fee, poolAddress: a.poolAddress })));
@@ -733,8 +689,6 @@ export default function NewPositionPage() {
             try {
                 setIsCalculating(true);
 
-                // Simply display the user-entered amounts
-                // The actual position will be created on-chain during the mint transaction
                 const pos = {
                     amount0: amount1 || '0',
                     amount1: amount2 || '0',
@@ -756,7 +710,6 @@ export default function NewPositionPage() {
         runCalc();
     }, [showReviewDialog, amount1, amount2, computedTickLower, computedTickUpper]);
 
-    // Compute ticks from min/max price when the pool/fee or price inputs change
     useEffect(() => {
         let cancelled = false;
         const compute = async () => {
@@ -801,9 +754,7 @@ export default function NewPositionPage() {
         return () => { cancelled = true; };
     }, [publicClient, token1Symbol, token2Symbol, feeToUse, minPrice, maxPrice]);
 
-    // Update market price when tokens or calculated position changes
     useEffect(() => {
-        // If we have a calculated position, try to use its currentPrice
         if (calculatedPosition && calculatedPosition.currentPrice) {
             const parsed = Number(calculatedPosition.currentPrice);
             if (!isNaN(parsed)) {
@@ -814,12 +765,10 @@ export default function NewPositionPage() {
         setMarketPrice(null);
     }, [token1Symbol, token2Symbol, calculatedPosition]);
 
-    // Proactively fetch market price when the token pair changes so the pair auto-converts before review
     useEffect(() => {
         let cancelled = false;
 
         const fetchPriceForPair = async () => {
-            // Map to Uniswap Token constants
             const mapBySymbol = (sym: string) => {
                 if (sym === 'USDC') return USDC_TOKEN;
                 if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
@@ -838,7 +787,6 @@ export default function NewPositionPage() {
             try {
                 setIsFetchingMarketPrice(true);
 
-                // Use a tiny amount to fetch pool state and price
                 const chosenPool = poolParam ?? poolAddress;
                 const poolAddrTyped = chosenPool ? (chosenPool as `0x${string}`) : undefined;
                 const pos = await calculateLiquidityPosition({
@@ -873,9 +821,6 @@ export default function NewPositionPage() {
         };
     }, [token1Symbol, token2Symbol]);
 
-    // (conversion handled centrally by the conversion effect above)
-
-    // Clear preflight error as soon as user changes inputs
     useEffect(() => {
         if (preflightError) setPreflightError(null);
     }, [amount1, amount2, token1Symbol, token2Symbol]);
