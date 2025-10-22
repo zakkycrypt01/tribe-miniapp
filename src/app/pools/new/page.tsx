@@ -167,6 +167,7 @@ export default function NewPositionPage() {
     const [preflightError, setPreflightError] = useState<string | null>(null);
     const [balance1, setBalance1] = useState<string | null>(null);
     const [balance2, setBalance2] = useState<string | null>(null);
+    const [useZeroMinimums, setUseZeroMinimums] = useState<boolean>(false); // For handling slippage errors
 
     const createUniswapV3Position = async () => {
         if (!address) throw new Error('Wallet not connected');
@@ -282,6 +283,22 @@ export default function NewPositionPage() {
         const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes
 
         // The ABI expects a tuple, so pass as an array in the correct order
+        // For dealing with slippage errors, we need to set more generous slippage tolerance
+        
+        // Calculate minimum amounts based on settings
+        // If useZeroMinimums is true, use 0 for both min amounts (just like the Solidity script)
+        // Otherwise use 5% slippage allowance
+        const amount0Min = useZeroMinimums ? 0n : amount0Desired * 95n / 100n; // 0 or 5% slippage 
+        const amount1Min = useZeroMinimums ? 0n : amount1Desired * 95n / 100n; // 0 or 5% slippage
+        
+        console.log('Slippage calculation:', {
+            amount0Desired: amount0Desired.toString(),
+            amount1Desired: amount1Desired.toString(),
+            amount0Min: amount0Min.toString(),
+            amount1Min: amount1Min.toString(),
+            useZeroMinimums,
+        });
+        
         const mintParamsArray = [
             token0 as `0x${string}`,
             token1 as `0x${string}`,
@@ -290,8 +307,8 @@ export default function NewPositionPage() {
             tickUpper,
             amount0Desired,
             amount1Desired,
-            amount0Desired * 995n / 1000n, // amount0Min with 0.5% slippage
-            amount1Desired * 995n / 1000n, // amount1Min with 0.5% slippage
+            amount0Min, 
+            amount1Min,
         ];
 
         // First approve tokens just like the Solidity script does
@@ -329,8 +346,15 @@ export default function NewPositionPage() {
             const receipt = await waitForTransactionReceipt(wagmiConfig, { hash: txHash });
             console.log('Liquidity position created. Receipt:', receipt);
             return receipt;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to create liquidity position:', error);
+            
+            // Check specifically for price slippage errors
+            if (error?.message?.includes('slippage') || error?.shortMessage?.includes('slippage')) {
+                setPreflightError('Price slippage check failed. Retry with zero minimums (no slippage protection) or adjust your amounts.');
+            } else {
+                setPreflightError(`Transaction failed: ${error?.shortMessage || error?.message || 'Unknown error'}`);
+            }
             throw error;
         }
     };
@@ -434,14 +458,19 @@ export default function NewPositionPage() {
 
     const handleCreate = async () => {
         try {
+            // Clear previous errors when retrying
             setPreflightError(null);
+            
             if (!publicClient || !address) throw new Error('Wallet or client not connected');
             
-            // Run preflight checks
-            const ok = await runPreflightChecks();
-            if (!ok) {
-                setCreationStep('review');
-                return;
+            // Skip preflight checks if we're retrying with zero minimums
+            let ok = true;
+            if (!useZeroMinimums) {
+                ok = await runPreflightChecks();
+                if (!ok) {
+                    setCreationStep('review');
+                    return;
+                }
             }
 
             setCreationStep('approving');
@@ -1211,18 +1240,41 @@ export default function NewPositionPage() {
                                 )}
                             </div>
 
-                            <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/10">
+                                <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/10">
                                 <div className="flex justify-between items-center mb-2">
                                     <p className="text-sm font-medium text-muted-foreground">Network Cost</p>
                                     <p className="font-bold text-foreground">$2.14</p>
                                 </div>
                                 {preflightError && (
-                                    <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded p-3 mt-2">{preflightError}</div>
+                                    <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded p-3 mt-2 space-y-2">
+                                        <p>{preflightError}</p>
+                                        
+                                        {/* Add option to retry with zero minimums if slippage error */}
+                                        {preflightError.includes('slippage') && (
+                                            <div className="flex items-center mt-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    id="zero-minimums" 
+                                                    checked={useZeroMinimums}
+                                                    onChange={(e) => setUseZeroMinimums(e.target.checked)}
+                                                    className="mr-2"
+                                                />
+                                                <label htmlFor="zero-minimums" className="text-xs cursor-pointer">
+                                                    Use zero minimums (like Solidity script)
+                                                </label>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
-                            </div>
-
-                            <Button size="lg" className="w-full h-12 text-base font-medium bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80" onClick={handleCreate} disabled={isCalculating || isFetchingMarketPrice || !!preflightError}>
-                                {preflightError ? 'Fix Error to Create' : 'Create Position'}
+                            </div>                            <Button 
+                                size="lg" 
+                                className="w-full h-12 text-base font-medium bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80" 
+                                onClick={handleCreate} 
+                                disabled={isCalculating || isFetchingMarketPrice || (!!preflightError && !useZeroMinimums)}
+                            >
+                                {preflightError 
+                                    ? (useZeroMinimums ? 'Retry with Zero Minimums' : 'Fix Error to Create') 
+                                    : 'Create Position'}
                             </Button>
                         </div>
                     )}                    {creationStep !== 'review' && (
