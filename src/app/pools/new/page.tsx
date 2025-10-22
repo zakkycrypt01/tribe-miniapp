@@ -285,7 +285,6 @@ export default function NewPositionPage() {
             0n,
             0n,
             address as `0x${string}`,
-            deadline,
         ];
 
         const txHash = await writeContract(wagmiConfig, {
