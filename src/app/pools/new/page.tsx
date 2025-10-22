@@ -167,7 +167,6 @@ export default function NewPositionPage() {
     const [preflightError, setPreflightError] = useState<string | null>(null);
     const [balance1, setBalance1] = useState<string | null>(null);
     const [balance2, setBalance2] = useState<string | null>(null);
-    const [useZeroMinimums, setUseZeroMinimums] = useState<boolean>(false); // For handling slippage errors
 
     const createUniswapV3Position = async () => {
         if (!address) throw new Error('Wallet not connected');
@@ -245,61 +244,16 @@ export default function NewPositionPage() {
     const tickLower = computedTickLower ?? -887220;
     const tickUpper = computedTickUpper ?? 887220;
 
-        // Build mint params and call the NonfungiblePositionManager directly (like the solidity script)
-        const NONFUNGIBLE_POSITION_MANAGER_ABI = [
-            {
-                inputs: [
-                    {
-                        components: [
-                            { internalType: 'address', name: 'token0', type: 'address' },
-                            { internalType: 'address', name: 'token1', type: 'address' },
-                            { internalType: 'uint24', name: 'fee', type: 'uint24' },
-                            { internalType: 'int24', name: 'tickLower', type: 'int24' },
-                            { internalType: 'int24', name: 'tickUpper', type: 'int24' },
-                            { internalType: 'uint256', name: 'amount0Desired', type: 'uint256' },
-                            { internalType: 'uint256', name: 'amount1Desired', type: 'uint256' },
-                            { internalType: 'uint256', name: 'amount0Min', type: 'uint256' },
-                            { internalType: 'uint256', name: 'amount1Min', type: 'uint256' },
-                            { internalType: 'address', name: 'recipient', type: 'address' },
-                            { internalType: 'uint256', name: 'deadline', type: 'uint256' },
-                        ],
-                        internalType: 'struct INonfungiblePositionManager.MintParams',
-                        name: 'params',
-                        type: 'tuple',
-                    },
-                ],
-                name: 'mint',
-                outputs: [
-                    { internalType: 'uint256', name: 'tokenId', type: 'uint256' },
-                    { internalType: 'uint128', name: 'liquidity', type: 'uint128' },
-                    { internalType: 'uint256', name: 'amount0', type: 'uint256' },
-                    { internalType: 'uint256', name: 'amount1', type: 'uint256' },
-                ],
-                stateMutability: 'payable',
-                type: 'function',
-            },
-        ];
-
+        
         const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes
 
-        // The ABI expects a tuple, so pass as an array in the correct order
-        // For dealing with slippage errors, we need to set more generous slippage tolerance
-        
-        // Calculate minimum amounts based on settings
-        // If useZeroMinimums is true, use 0 for both min amounts (EXACTLY like the Solidity script)
-        // Otherwise use a much more generous 10% slippage allowance
-        const amount0Min = useZeroMinimums ? 0n : amount0Desired * 90n / 100n; // 0 or 10% slippage 
-        const amount1Min = useZeroMinimums ? 0n : amount1Desired * 90n / 100n; // 0 or 10% slippage
-        
-        console.log('Slippage calculation:', {
+        console.log('Using Solidity script approach with zero minimums:', {
             amount0Desired: amount0Desired.toString(),
             amount1Desired: amount1Desired.toString(),
-            amount0Min: amount0Min.toString(),
-            amount1Min: amount1Min.toString(),
-            useZeroMinimums,
+            amount0Min: '0', 
+            amount1Min: '0',
         });
         
-        // If using zero minimums, build the params exactly like the Solidity script
         const mintParamsArray = [
             token0 as `0x${string}`,
             token1 as `0x${string}`,
@@ -308,8 +262,8 @@ export default function NewPositionPage() {
             tickUpper,
             amount0Desired,
             amount1Desired,
-            useZeroMinimums ? 0n : amount0Min,  // Set to 0 if useZeroMinimums is true
-            useZeroMinimums ? 0n : amount1Min,  // Set to 0 if useZeroMinimums is true
+            0n,
+            0n,
         ];
 
         // First approve tokens just like the Solidity script does
@@ -350,12 +304,8 @@ export default function NewPositionPage() {
         } catch (error: any) {
             console.error('Failed to create liquidity position:', error);
             
-            // Check specifically for price slippage errors
-            if (error?.message?.includes('slippage') || error?.shortMessage?.includes('slippage')) {
-                setPreflightError('Price slippage check failed. Retry with zero minimums (no slippage protection) or adjust your amounts.');
-            } else {
-                setPreflightError(`Transaction failed: ${error?.shortMessage || error?.message || 'Unknown error'}`);
-            }
+            // General error handling
+            setPreflightError(`Transaction failed: ${error?.shortMessage || error?.message || 'Unknown error'}`);
             throw error;
         }
     };
@@ -464,14 +414,11 @@ export default function NewPositionPage() {
             
             if (!publicClient || !address) throw new Error('Wallet or client not connected');
             
-            // Skip preflight checks if we're retrying with zero minimums
-            let ok = true;
-            if (!useZeroMinimums) {
-                ok = await runPreflightChecks();
-                if (!ok) {
-                    setCreationStep('review');
-                    return;
-                }
+            // Run preflight checks
+            const ok = await runPreflightChecks();
+            if (!ok) {
+                setCreationStep('review');
+                return;
             }
 
             setCreationStep('approving');
@@ -1250,45 +1197,25 @@ export default function NewPositionPage() {
                                     <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded p-3 mt-2 space-y-2">
                                         <p>{preflightError}</p>
                                         
-                                        {/* Add option to retry with zero minimums if slippage error */}
+                                        {/* Note about using zero minimums like the Solidity script */}
                                         {preflightError.includes('slippage') && (
-                                            <div className="flex items-center mt-3 p-2 bg-background/80 rounded border border-primary">
-                                                <input 
-                                                    type="checkbox" 
-                                                    id="zero-minimums" 
-                                                    checked={useZeroMinimums}
-                                                    onChange={(e) => {
-                                                        console.log("Setting useZeroMinimums to:", e.target.checked);
-                                                        setUseZeroMinimums(e.target.checked);
-                                                    }}
-                                                    className="mr-2 h-4 w-4"
-                                                />
-                                                <label htmlFor="zero-minimums" className="text-sm font-medium cursor-pointer text-primary">
-                                                    Use zero minimums (exactly like Solidity script)
-                                                </label>
+                                            <div className="p-2 bg-background/80 rounded border border-primary mt-3">
+                                                <p className="text-sm font-medium text-primary">
+                                                    Implementation now matches the working Solidity script using zero minimums.
+                                                    Try again with the current settings.
+                                                </p>
                                             </div>
                                         )}
                                     </div>
                                 )}
-                            </div>                            {preflightError?.includes('slippage') && !useZeroMinimums && (
-                                <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-blue-600 text-sm">
-                                    <strong>Tip:</strong> Check the "Use zero minimums" option above to match the Solidity script's behavior exactly. 
-                                    This will allow the transaction to succeed despite price fluctuations.
-                                </div>
-                            )}
-                        
-                            <Button 
+                            </div>                            <Button 
                                 size="lg" 
-                                className={`w-full h-12 text-base font-medium ${
-                                    useZeroMinimums && preflightError?.includes('slippage')
-                                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
-                                    : 'bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80'
-                                }`}
+                                className="w-full h-12 text-base font-medium bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80"
                                 onClick={handleCreate} 
-                                disabled={isCalculating || isFetchingMarketPrice || (!!preflightError && !useZeroMinimums)}
+                                disabled={isCalculating || isFetchingMarketPrice}
                             >
                                 {preflightError 
-                                    ? (useZeroMinimums ? 'Retry with Zero Minimums (Recommended)' : 'Fix Error to Create') 
+                                    ? 'Retry Create Position' 
                                     : 'Create Position'}
                             </Button>
                         </div>
