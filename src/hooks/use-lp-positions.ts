@@ -443,10 +443,20 @@ export function useLpPositions() {
               }
             }
             
-            // Add the positions we found to the result list
+              // Add the positions we found to the result list
             if (leaderPositions.length > 0) {
+              // Make sure all leader positions are marked as tribe strategy
+              leaderPositions.forEach(pos => {
+                pos.isTribeStrategy = true;  // Explicitly set this flag
+              });
+              
               const formattedLeaderPositions = await formatPositionsResponse(leaderPositions, 'leader');
               console.log(`Found ${formattedLeaderPositions.length} leader positions directly`);
+              
+              // Verify they all have isTribeStrategy set
+              const verifyTribeStrategy = formattedLeaderPositions.every(pos => pos.isTribeStrategy);
+              console.log(`All positions have isTribeStrategy flag: ${verifyTribeStrategy}`);
+              
               allPositions.push(...formattedLeaderPositions);
             } else {
               // If we still couldn't find any positions, create a placeholder
