@@ -321,57 +321,68 @@ export default function NewPositionPage() {
     const formatDisplayAmount = _formatDisplayAmount;
 
     const handleAmount1Change = (value: string) => {
+        console.log('🎯 handleAmount1Change called with:', value);
         setLastEdited('amount1');
         setAmount1(value);
     };
 
     const handleAmount2Change = (value: string) => {
+        console.log('🎯 handleAmount2Change called with:', value);
         setLastEdited('amount2');
         setAmount2(value);
     };
 
-    // Debounced conversion effect using SDK calculateOptimalAmounts for accurate on-chain pricing
+    // Debounced conversion effect using market price for accurate conversions
     useEffect(() => {
-        if (!publicClient || !poolAddress) return;
+        if (!marketPrice || marketPrice <= 0) {
+            console.log('⏭️ Skipping conversion: no valid market price');
+            return;
+        }
 
-        const tokenAObj = mapBySymbol(token1Symbol);
-        const tokenBObj = mapBySymbol(token2Symbol);
-        if (!tokenAObj || !tokenBObj) return;
-        
-        const decA = tokenAObj.decimals ?? 18;
-        const decB = tokenBObj.decimals ?? 18;
+        console.log('� Market price available:', marketPrice);
 
         let cancelled = false;
-        const timer = setTimeout(async () => {
+        const timer = setTimeout(() => {
             if (cancelled) return;
 
             try {
-                // Determine which token is token0 (smaller address)
-                const tokenAIsToken0 = tokenAObj.sortsBefore(tokenBObj);
-                
                 if (lastEdited === 'amount1' && amount1 !== '') {
                     const n = Number(amount1);
+                    console.log(`📝 Converting amount1:`, { amount1, n });
                     if (!isNaN(n) && isFinite(n) && n > 0) {
-                        const optimal = await calculateOptimalAmounts(tokenAObj, tokenBObj, feeToUse, amount1);
-                        if (cancelled) return;
-                        // If tokenA is token0, then the output (amount1 from SDK) corresponds to tokenB
-                        // If tokenA is NOT token0, then the output (amount0 from SDK) corresponds to tokenB
-                        const converted = tokenAIsToken0 ? optimal.amount1 : optimal.amount0;
-                        setAmount2(formatDisplayAmount(Number(converted), decB));
+                        // amount1 is in tokenA (USDC), convert to tokenB (WBTC)
+                        // marketPrice = WBTC per USDC
+                        const converted = n * marketPrice;
+                        // Format to avoid scientific notation
+                        const formatted = converted.toLocaleString('en-US', { 
+                            useGrouping: false, 
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 20
+                        });
+                        console.log(`💰 ${n} ${token1Symbol} × ${marketPrice} = ${converted} → formatted: ${formatted}`);
+                        setAmount2(formatted);
                     }
                 } else if (lastEdited === 'amount2' && amount2 !== '') {
                     const n = Number(amount2);
+                    console.log(`📝 Converting amount2:`, { amount2, n });
                     if (!isNaN(n) && isFinite(n) && n > 0) {
-                        const optimal = await calculateOptimalAmounts(tokenBObj, tokenAObj, feeToUse, amount2);
-                        if (cancelled) return;
-                        // If tokenB is token0 (which means tokenB < tokenA), then the output (amount1 from SDK) corresponds to tokenA
-                        // If tokenB is NOT token0 (which means tokenA < tokenB), then the output (amount0 from SDK) corresponds to tokenA
-                        const converted = tokenAIsToken0 ? optimal.amount0 : optimal.amount1;
-                        setAmount1(formatDisplayAmount(Number(converted), decA));
+                        // amount2 is in tokenB (WBTC), convert to tokenA (USDC)
+                        // If marketPrice = WBTC per USDC, then USDC per WBTC = 1 / marketPrice
+                        const converted = n / marketPrice;
+                        // Format to avoid scientific notation
+                        const formatted = converted.toLocaleString('en-US', { 
+                            useGrouping: false, 
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 20
+                        });
+                        console.log(`💰 ${n} ${token2Symbol} ÷ ${marketPrice} = ${converted} → formatted: ${formatted}`);
+                        setAmount1(formatted);
                     }
+                } else {
+                    console.log('⏭️ Skipping: invalid state', { lastEdited, amount1, amount2 });
                 }
             } catch (e) {
-                console.warn('Amount conversion error:', e);
+                console.error('❌ Conversion error:', e);
             }
         }, 200);
 
@@ -379,7 +390,7 @@ export default function NewPositionPage() {
             cancelled = true;
             clearTimeout(timer);
         };
-    }, [publicClient, poolAddress, amount1, amount2, token1Symbol, token2Symbol, lastEdited, feeToUse]);
+    }, [marketPrice, amount1, amount2, token1Symbol, token2Symbol, lastEdited]);
 
     const handleCreate = async () => {
         try {
@@ -659,43 +670,20 @@ export default function NewPositionPage() {
             try {
                 setIsCalculating(true);
 
-                // Map selected symbols to Uniswap Token objects exported from lpcheck
-                let tokenA: any | null = null;
-                let tokenB: any | null = null;
-
-                // Prefer the exported constants for common tokens
-                const mapBySymbol = (sym: string) => {
-                    if (sym === 'USDC') return USDC_TOKEN;
-                    if (sym === 'WETH' || sym === 'ETH') return WETH_TOKEN;
-                    if (sym === 'WBTC') return WBTC_TOKEN;
-                    if (sym === 'UNI') return UNI_TOKEN;
-                    return null;
-                };
-
-                tokenA = mapBySymbol(token1Symbol);
-                tokenB = mapBySymbol(token2Symbol);
-
-                if (!tokenA || !tokenB) {
-                    // Unsupported tokens for on-chain calculation in this demo
-                    setCalculatedPosition({ error: 'Token pair not supported for on-chain calculation in demo' });
-                    setIsCalculating(false);
-                    return;
-                }
-
-                const params = {
-                    token0: tokenA,
-                    token1: tokenB,
-                    fee: feeToUse,
+                // Simply display the user-entered amounts
+                // The actual position will be created on-chain during the mint transaction
+                const pos = {
                     amount0: amount1 || '0',
                     amount1: amount2 || '0',
-                    tickLower: computedTickLower ?? undefined,
-                    tickUpper: computedTickUpper ?? undefined,
+                    liquidity: '0',
+                    tickLower: computedTickLower ?? -163920,
+                    tickUpper: computedTickUpper ?? -161920,
                 };
 
-                const pos = await calculateLiquidityPosition(params);
+                console.log('📊 Position preview:', pos);
                 setCalculatedPosition(pos);
             } catch (e) {
-                console.error('Error calculating position:', e);
+                console.error('Error preparing position:', e);
                 setCalculatedPosition({ error: String(e) });
             } finally {
                 setIsCalculating(false);
@@ -703,7 +691,7 @@ export default function NewPositionPage() {
         };
 
         runCalc();
-    }, [showReviewDialog, token1Symbol, token2Symbol, amount1, amount2]);
+    }, [showReviewDialog, amount1, amount2, computedTickLower, computedTickUpper]);
 
     // Compute ticks from min/max price when the pool/fee or price inputs change
     useEffect(() => {
