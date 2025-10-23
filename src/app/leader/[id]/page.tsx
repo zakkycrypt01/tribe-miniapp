@@ -9,16 +9,52 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Copy, Loader2 } from "lucide-react";
 import { PerformanceChart } from "@/components/app/performance-chart";
 import { LpPositions } from "@/components/app/lp-positions";
+import { ActionHistory } from "@/components/app/action-history";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useReadContract } from "wagmi";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAccount, useBalance } from "wagmi";
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
+import { parseUnits } from "viem";
 import type { Leader } from "@/app/lib/types";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+
+// Define supported tokens with their addresses and decimals
+const SUPPORTED_TOKENS = [
+  { 
+    symbol: "USDC", 
+    name: "USD Coin",
+    address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", 
+    decimals: 6,
+    logoUrl: "/assets/images/tokens/usdc.png" 
+  },
+  { 
+    symbol: "WETH", 
+    name: "Wrapped Ether",
+    address: "0x4200000000000000000000000000000000000006", 
+    decimals: 18,
+    logoUrl: "/assets/images/tokens/weth.png" 
+  },
+  { 
+    symbol: "DAI", 
+    name: "Dai Stablecoin",
+    address: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", 
+    decimals: 18,
+    logoUrl: "/assets/images/tokens/dai.png"
+  },
+  { 
+    symbol: "USDT", 
+    name: "Tether USD",
+    address: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", 
+    decimals: 6,
+    logoUrl: "/assets/images/tokens/usdt.png"
+  }
+];
 
 const mapContractLeaderToLeader = (contractLeader: any): Leader => {
   const imageMap = new Map(PlaceHolderImages.map(img => [img.id, img]));
@@ -141,10 +177,20 @@ export default function LeaderProfilePage() {
   
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [copyAmount, setCopyAmount] = useState('');
+  const [selectedToken, setSelectedToken] = useState(SUPPORTED_TOKENS[0]);
   const { toast } = useToast();
 
   const [isDepositing, setIsDepositing] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
+  const [currentTxStep, setCurrentTxStep] = useState<string>('');
+  const [currentTxHash, setCurrentTxHash] = useState<string>('');
+  
+  // Get user's wallet address and balance
+  const { address: userAddress } = useAccount();
+  const { data: tokenBalance } = useBalance({
+    address: userAddress,
+    token: selectedToken.address as `0x${string}`,
+  });
 
   if (isLoading || !leader) {
     return (
@@ -168,7 +214,10 @@ export default function LeaderProfilePage() {
     );
   }
 
-  const handleCopyConfirm = () => {
+  // Define the hooks outside of the handler function
+  const { writeContractAsync } = useWriteContract();
+  
+  const handleCopyConfirm = async () => {
     if (!copyAmount || parseFloat(copyAmount) <= 0) {
       toast({
         variant: "destructive",
@@ -178,13 +227,162 @@ export default function LeaderProfilePage() {
       return;
     }
     
+    // Check if user has enough balance
+    if (tokenBalance && parseFloat(copyAmount) > parseFloat(tokenBalance.formatted)) {
+      toast({
+        variant: "destructive",
+        title: "Insufficient Balance",
+        description: `You don't have enough ${selectedToken.symbol} for this deposit.`,
+      });
+      return;
+    }
+    
     setIsCopyDialogOpen(false);
     setIsDepositing(true);
+    setCurrentTxStep('Initiating copy trading setup...');
+    setCurrentTxHash('');
+    setDepositSuccess(false);
 
-    // Simulate transaction
-    setTimeout(() => {
-        setDepositSuccess(true);
-    }, 3000);
+    try {
+      // Get the selected token information
+      const tokenAddress = selectedToken.address;
+      const tokenDecimals = selectedToken.decimals;
+      const tokenSymbol = selectedToken.symbol;
+      
+      // Parse amount with the correct decimals for the selected token
+      const depositAmount = parseUnits(copyAmount, tokenDecimals);
+      
+      console.log('Starting copy trading flow:', {
+        leaderAddress: walletAddress,
+        depositAmount: copyAmount,
+        token: selectedToken.symbol,
+        tokenAddress: tokenAddress,
+        parsedAmount: depositAmount.toString()
+      });
+      
+      // Step 1: Get or create vault for user following the leader
+      setCurrentTxStep('Checking for existing vault...');
+      console.log('Checking for existing vault...');
+      
+      const vaultAddress = await new Promise(async (resolve) => {
+        try {
+          // First check if vault already exists
+          const result = await writeContractAsync({
+            address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
+            abi: ABIS.TribeVaultFactory,
+            functionName: "getVault",
+            args: [walletAddress as `0x${string}`, walletAddress as `0x${string}`]
+          });
+          resolve(result);
+        } catch (error) {
+          console.error('Error getting vault:', error);
+          resolve("0x0000000000000000000000000000000000000000");
+        }
+      });
+      
+      let finalVaultAddress = vaultAddress as `0x${string}`;
+      
+      // If vault doesn't exist, create it
+      if (!finalVaultAddress || finalVaultAddress === "0x0000000000000000000000000000000000000000") {
+        setCurrentTxStep('Creating a new copy trading vault...');
+        console.log('No vault found. Creating new vault...');
+        try {
+          // Create vault transaction
+          const createTx = await writeContractAsync({
+            address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
+            abi: ABIS.TribeVaultFactory,
+            functionName: "createVault",
+            args: [walletAddress as `0x${string}`]
+          });
+          
+          setCurrentTxHash(createTx);
+          console.log('Vault creation transaction:', createTx);
+          
+          // Get vault address after creation
+          setCurrentTxStep('Retrieving your new vault address...');
+          finalVaultAddress = await writeContractAsync({
+            address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
+            abi: ABIS.TribeVaultFactory,
+            functionName: "getVault",
+            args: [walletAddress as `0x${string}`, walletAddress as `0x${string}`]
+          }) as `0x${string}`;
+          
+          console.log('New vault created at:', finalVaultAddress);
+        } catch (error) {
+          setCurrentTxStep(`Error creating vault: ${error instanceof Error ? error.message : String(error)}`);
+          throw new Error(`Failed to create vault: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else {
+        console.log('Using existing vault:', finalVaultAddress);
+        setCurrentTxStep('Using your existing vault...');
+      }
+      
+      // Step 2: Approve selected token for spending by the vault
+      setCurrentTxStep(`Approving ${selectedToken.symbol} tokens for deposit...`);
+      console.log(`Approving ${selectedToken.symbol} tokens for vault...`);
+      try {
+        const approveTx = await writeContractAsync({
+          address: selectedToken.address as `0x${string}`,
+          abi: [
+            {
+              name: "approve",
+              type: "function",
+              stateMutability: "nonpayable",
+              inputs: [
+                { name: "spender", type: "address" },
+                { name: "amount", type: "uint256" }
+              ],
+              outputs: [{ name: "", type: "bool" }]
+            }
+          ],
+          functionName: "approve",
+          args: [finalVaultAddress, depositAmount]
+        });
+        
+        setCurrentTxHash(approveTx);
+        console.log('Token approval transaction:', approveTx);
+      } catch (error) {
+        setCurrentTxStep(`Error approving ${selectedToken.symbol}: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Failed to approve tokens: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      
+      // Step 3: Deposit the selected token to the vault
+      setCurrentTxStep(`Depositing ${selectedToken.symbol} to your copy trading vault...`);
+      console.log(`Depositing ${selectedToken.symbol} to vault...`);
+      try {
+        const depositTx = await writeContractAsync({
+          address: finalVaultAddress,
+          abi: ABIS.TribeCopyVault,
+          functionName: "deposit",
+          args: [selectedToken.address as `0x${string}`, depositAmount]
+        });
+        
+        setCurrentTxHash(depositTx);
+        console.log('Deposit transaction:', depositTx);
+      } catch (error) {
+        setCurrentTxStep(`Error depositing: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Failed to deposit to vault: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      
+      // Update UI on success
+      setCurrentTxStep('Deposit completed successfully!');
+      console.log('Deposit flow completed successfully');
+      setDepositSuccess(true);
+      
+      toast({
+        title: "Deposit Successful",
+        description: `You've successfully copied ${leader.name}'s strategy with ${copyAmount} ${selectedToken.symbol}.`,
+      });
+    } catch (error) {
+      console.error("Deposit Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Transaction Failed",
+        description: error instanceof Error ? error.message : "Failed to complete the deposit. Please try again."
+      });
+      
+      setIsDepositing(false);
+    }
   };
 
   const resetCopyFlow = () => {
@@ -233,7 +431,17 @@ export default function LeaderProfilePage() {
           </Card>
         </div>
 
-        <LpPositions positions={lpPositions} />
+        <LpPositions/>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Action History</CardTitle>
+            <CardDescription>Recent trading activity from this strategy.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ActionHistory address={leader.walletAddress} />
+          </CardContent>
+        </Card>
 
       </main>
 
@@ -246,32 +454,87 @@ export default function LeaderProfilePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="copy-amount">Capital to Deposit (USDC)</Label>
-              <Input
-                id="copy-amount"
-                type="number"
-                placeholder="0.00"
-                value={copyAmount}
-                onChange={(e) => setCopyAmount(e.target.value)}
-              />
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="copy-amount">Amount to Deposit</Label>
+                <Input
+                  id="copy-amount"
+                  type="number"
+                  placeholder="0.00"
+                  value={copyAmount}
+                  onChange={(e) => setCopyAmount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="token-select">Token</Label>
+                <Select 
+                  value={selectedToken.symbol} 
+                  onValueChange={(value) => {
+                    const token = SUPPORTED_TOKENS.find(t => t.symbol === value);
+                    if (token) {
+                      setSelectedToken(token);
+                      // Reset amount to prevent issues with different token decimals
+                      setCopyAmount('');
+                    }
+                  }}
+                >
+                  <SelectTrigger id="token-select" className="w-full">
+                    <SelectValue placeholder="Select token" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_TOKENS.map((token) => (
+                      <SelectItem key={token.address} value={token.symbol}>
+                        <div className="flex items-center gap-2">
+                          <img 
+                            src={token.logoUrl} 
+                            alt={token.symbol} 
+                            className="w-4 h-4 rounded-full"
+                            onError={(e) => {
+                              // Fallback for missing token logos
+                              (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cpath d='M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3'%3E%3C/path%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'%3E%3C/line%3E%3C/svg%3E";
+                            }}
+                          />
+                          {token.symbol}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-             <div className="space-y-2 text-sm">
+            
+            <div className="p-3 bg-muted/40 rounded-lg">
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                    <span className="text-muted-foreground">You will deposit:</span>
-                    <span className="font-medium">{copyAmount ? parseFloat(copyAmount).toLocaleString() : '0.00'} USDC</span>
+                  <span className="text-muted-foreground">You will deposit:</span>
+                  <span className="font-medium">
+                    {copyAmount ? parseFloat(copyAmount).toLocaleString() : '0.00'} {selectedToken.symbol}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                    <span className="text-muted-foreground">Estimated Gas Fee:</span>
-                    <span className="font-mono">~0.006 ETH</span>
+                  <span className="text-muted-foreground">Your balance:</span>
+                  <span className="font-medium">
+                    {tokenBalance ? parseFloat(tokenBalance.formatted).toLocaleString() : '0.00'} {selectedToken.symbol}
+                  </span>
                 </div>
-             </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Estimated Gas Fee:</span>
+                  <span className="font-mono">~0.006 ETH</span>
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
                 <Button type="button" variant="outline">Cancel</Button>
             </DialogClose>
-            <Button type="submit" onClick={handleCopyConfirm}>Confirm & Deposit</Button>
+            <Button 
+              type="submit" 
+              onClick={handleCopyConfirm} 
+              disabled={!copyAmount || parseFloat(copyAmount) <= 0 || (tokenBalance && parseFloat(copyAmount) > parseFloat(tokenBalance.formatted))}
+            >
+              Confirm & Deposit
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -282,17 +545,94 @@ export default function LeaderProfilePage() {
                 <DialogTitle>{depositSuccess ? "Deposit Successful" : "Processing Deposit"}</DialogTitle>
             </DialogHeader>
               { !depositSuccess ? (
-                <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+                <div className="flex flex-col items-center justify-center gap-4 p-6 text-center">
                     <Loader2 className="h-16 w-16 animate-spin text-primary" />
                     <h3 className="text-xl font-bold">Processing Deposit</h3>
-                    <p className="text-muted-foreground">Your transaction is being submitted to the blockchain. Please wait...</p>
+                    <p className="text-muted-foreground mb-2">{currentTxStep}</p>
+                    
+                    {currentTxHash && (
+                      <div className="w-full bg-muted/50 rounded-lg p-3 mt-2">
+                        <p className="text-xs text-muted-foreground mb-1">Transaction Hash:</p>
+                        <div className="flex items-center gap-2 justify-center">
+                          <p className="font-mono text-xs truncate">{currentTxHash}</p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => {
+                              navigator.clipboard.writeText(currentTxHash);
+                              toast({
+                                title: "Copied!",
+                                description: "Transaction hash copied to clipboard",
+                              });
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="w-full mt-4">
+                      <div className="text-xs text-muted-foreground text-left mb-2">Copy Trading Process:</div>
+                      <div className="space-y-3 text-sm text-left">
+                        <div className="flex items-center gap-2">
+                          <div className={`rounded-full w-5 h-5 flex items-center justify-center ${
+                            currentTxStep.includes('vault') ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                          }`}>
+                            1
+                          </div>
+                          <span>Create or verify copy trading vault</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className={`rounded-full w-5 h-5 flex items-center justify-center ${
+                            currentTxStep.includes('Approving') ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                          }`}>
+                            2
+                          </div>
+                          <span>Approve {selectedToken.symbol} for deposit</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className={`rounded-full w-5 h-5 flex items-center justify-center ${
+                            currentTxStep.includes('Depositing') ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                          }`}>
+                            3
+                          </div>
+                          <span>Deposit {selectedToken.symbol} to copy trading vault</span>
+                        </div>
+                      </div>
+                    </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
                     <CheckCircle className="h-16 w-16 text-green-500" />
                     <h3 className="text-xl font-bold">Deposit Successful!</h3>
                     <p className="text-muted-foreground">You are now copying {leader.name}. You can track your new position from your portfolio.</p>
-                     <div className="flex gap-4 w-full pt-4">
+                    
+                    {currentTxHash && (
+                      <div className="w-full bg-muted/50 rounded-lg p-3 mt-2">
+                        <p className="text-xs text-muted-foreground mb-1">Transaction Hash:</p>
+                        <div className="flex items-center gap-2 justify-center">
+                          <p className="font-mono text-xs truncate">{currentTxHash}</p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => {
+                              navigator.clipboard.writeText(currentTxHash);
+                              toast({
+                                title: "Copied!",
+                                description: "Transaction hash copied to clipboard",
+                              });
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-4 w-full pt-4">
                         <Button variant="outline" className="w-full" onClick={resetCopyFlow}>Close</Button>
                         <Button asChild className="w-full">
                             <Link href="/portfolio">View Position</Link>
