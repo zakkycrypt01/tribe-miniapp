@@ -20,11 +20,6 @@ export function ActionHistory({ address }: { address: string }) {
             <CardTitle>Transaction History</CardTitle>
             <Badge variant="outline">{history.length} Transactions</Badge>
           </div>
-          <CardDescription>Recent transactions from the connected wallet</CardDescription>
-          <CardDescription className="text-xs mt-1 flex items-center gap-1">
-            <span className="font-medium">Address:</span> 
-            <code className="bg-muted px-1 py-0.5 rounded text-xs">{address}</code>
-          </CardDescription>
         </CardHeader>
       <CardContent>
         <div className="rounded-md border">
