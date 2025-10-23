@@ -268,30 +268,38 @@ export default function LeaderProfilePage() {
       setCurrentTxStep('Checking for existing vault...');
       console.log('Checking for existing vault...');
       
-      const vaultAddress = await new Promise(async (resolve) => {
-        try {
-          // First check if vault already exists
-          const result = await writeContractAsync({
-            address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
-            abi: ABIS.TribeVaultFactory,
-            functionName: "getVault",
-            args: [walletAddress as `0x${string}`, walletAddress as `0x${string}`]
-          });
-          resolve(result);
-        } catch (error) {
-          console.error('Error getting vault:', error);
-          resolve("0x0000000000000000000000000000000000000000");
+      // Check if vault already exists - Use leader address and current user address
+      console.log('Checking vault for leader:', walletAddress, 'and user:', userAddress);
+      let vaultAddress = "0x0000000000000000000000000000000000000000";
+      
+      try {
+        // First check if vault already exists
+        const result = await writeContractAsync({
+          address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
+          abi: ABIS.TribeVaultFactory,
+          functionName: "getVault",
+          args: [walletAddress as `0x${string}`, userAddress as `0x${string}`]
+        });
+        
+        // Check if the result is a valid address
+        if (typeof result === 'string' && /^0x[0-9a-fA-F]{40}$/.test(result)) {
+          vaultAddress = result;
+          console.log('Found existing vault:', vaultAddress);
+        } else {
+          console.log('No valid vault address returned:', result);
         }
-      });
+      } catch (error) {
+        console.error('Error checking for vault:', error);
+      }
       
       let finalVaultAddress = vaultAddress as `0x${string}`;
       
       // If vault doesn't exist, create it
-      if (!finalVaultAddress || finalVaultAddress === "0x0000000000000000000000000000000000000000") {
+      if (vaultAddress === "0x0000000000000000000000000000000000000000") {
         setCurrentTxStep('Creating a new copy trading vault...');
         console.log('No vault found. Creating new vault...');
         try {
-          // Create vault transaction
+          // Create vault transaction with leader address as the argument
           const createTx = await writeContractAsync({
             address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
             abi: ABIS.TribeVaultFactory,
@@ -302,16 +310,34 @@ export default function LeaderProfilePage() {
           setCurrentTxHash(createTx);
           console.log('Vault creation transaction:', createTx);
           
+          // Wait for the transaction to complete
+          setCurrentTxStep('Waiting for vault creation to complete...');
+          
+          // Wait a bit for the transaction to be processed
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
           // Get vault address after creation
           setCurrentTxStep('Retrieving your new vault address...');
-          finalVaultAddress = await writeContractAsync({
-            address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
-            abi: ABIS.TribeVaultFactory,
-            functionName: "getVault",
-            args: [walletAddress as `0x${string}`, walletAddress as `0x${string}`]
-          }) as `0x${string}`;
-          
-          console.log('New vault created at:', finalVaultAddress);
+          try {
+            const vaultResult = await writeContractAsync({
+              address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
+              abi: ABIS.TribeVaultFactory,
+              functionName: "getVault",
+              args: [walletAddress as `0x${string}`, userAddress as `0x${string}`]
+            });
+            
+            // Check if it's a valid address (20 bytes / 40 hex chars)
+            if (typeof vaultResult === 'string' && /^0x[0-9a-fA-F]{40}$/.test(vaultResult)) {
+              finalVaultAddress = vaultResult as `0x${string}`;
+              console.log('New vault created at:', finalVaultAddress);
+            } else {
+              console.error('Invalid vault address returned:', vaultResult);
+              throw new Error('Failed to get a valid vault address');
+            }
+          } catch (error) {
+            console.error('Error getting vault after creation:', error);
+            throw new Error(`Failed to retrieve vault address: ${error instanceof Error ? error.message : String(error)}`);
+          }
         } catch (error) {
           setCurrentTxStep(`Error creating vault: ${error instanceof Error ? error.message : String(error)}`);
           throw new Error(`Failed to create vault: ${error instanceof Error ? error.message : String(error)}`);
@@ -324,7 +350,26 @@ export default function LeaderProfilePage() {
       // Step 2: Approve selected token for spending by the vault
       setCurrentTxStep(`Approving ${selectedToken.symbol} tokens for deposit...`);
       console.log(`Approving ${selectedToken.symbol} tokens for vault...`);
+      
+      // Validate finalVaultAddress is a proper Ethereum address
+      if (!finalVaultAddress || finalVaultAddress === "0x0000000000000000000000000000000000000000" || !/^0x[0-9a-fA-F]{40}$/.test(finalVaultAddress)) {
+        const errorMsg = `Invalid vault address: ${finalVaultAddress}`;
+        console.error(errorMsg);
+        setCurrentTxStep(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      console.log(`Approving ${selectedToken.symbol} for vault at address:`, finalVaultAddress);
+      
       try {
+        // Log the parameters for the approve call for debugging
+        console.log('Token approval parameters:', {
+          tokenAddress: selectedToken.address,
+          tokenSymbol: selectedToken.symbol,
+          spender: finalVaultAddress,
+          amount: depositAmount.toString()
+        });
+        
         const approveTx = await writeContractAsync({
           address: selectedToken.address as `0x${string}`,
           abi: [
@@ -345,17 +390,31 @@ export default function LeaderProfilePage() {
         
         setCurrentTxHash(approveTx);
         console.log('Token approval transaction:', approveTx);
+        
+        // Wait a bit for the approval transaction to be processed
+        setCurrentTxStep(`Waiting for ${selectedToken.symbol} approval to be confirmed...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (error) {
+        console.error('Error in approve transaction:', error);
         setCurrentTxStep(`Error approving ${selectedToken.symbol}: ${error instanceof Error ? error.message : String(error)}`);
         throw new Error(`Failed to approve tokens: ${error instanceof Error ? error.message : String(error)}`);
       }
       
       // Step 3: Deposit the selected token to the vault
       setCurrentTxStep(`Depositing ${selectedToken.symbol} to your copy trading vault...`);
-      console.log(`Depositing ${selectedToken.symbol} to vault...`);
+      console.log(`Depositing ${selectedToken.symbol} to vault at:`, finalVaultAddress);
+      
+      // Double-check the vault address again
+      if (!finalVaultAddress || finalVaultAddress === "0x0000000000000000000000000000000000000000" || !/^0x[0-9a-fA-F]{40}$/.test(finalVaultAddress)) {
+        const errorMsg = `Cannot deposit: Invalid vault address: ${finalVaultAddress}`;
+        console.error(errorMsg);
+        setCurrentTxStep(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
       try {
         const depositTx = await writeContractAsync({
-          address: finalVaultAddress,
+          address: finalVaultAddress as `0x${string}`,
           abi: ABIS.TribeCopyVault,
           functionName: "deposit",
           args: [selectedToken.address as `0x${string}`, depositAmount]
