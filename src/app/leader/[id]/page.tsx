@@ -24,6 +24,7 @@ import type { Leader } from "@/app/lib/types";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { readContract } from '@wagmi/core';
 import { config } from '@/components/providers/WagmiProvider';
+import { useDeposit } from '@/hooks/use-deposit';
 
 const SUPPORTED_TOKENS = [
   { 
@@ -203,6 +204,25 @@ export default function LeaderProfilePage() {
     );
   }
   
+  const { depositMultipleTokens, isLoading: isDepositLoading, currentStep: depositStep, txHash: depositTxHash, vaultState } = useDeposit({
+    leaderAddress: walletAddress as `0x${string}`,
+    onSuccess: () => {
+      setDepositSuccess(true);
+      toast({
+        title: "Deposit Successful",
+        description: `You've successfully copied ${leader.name}'s strategy with ${copyAmount} ${selectedToken.symbol}.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Transaction Failed",
+        description: error instanceof Error ? error.message : "Failed to complete the deposit. Please try again."
+      });
+      setIsDepositing(false);
+    },
+  });
+
   const handleCopyConfirm = async () => {
     if (!copyAmount || parseFloat(copyAmount) <= 0) {
       toast({
@@ -229,146 +249,15 @@ export default function LeaderProfilePage() {
     setDepositSuccess(false);
 
     try {
-      const tokenAddress = selectedToken.address;
       const tokenDecimals = selectedToken.decimals;
-      const tokenSymbol = selectedToken.symbol;
-      
       const depositAmount = parseUnits(copyAmount, tokenDecimals);
       
-      console.log('Starting copy trading flow:', {
-        leaderAddress: walletAddress,
-        depositAmount: copyAmount,
-        token: selectedToken.symbol,
-        tokenAddress: tokenAddress,
-        parsedAmount: depositAmount.toString()
-      });
-      
-      // Step 1: Get or create vault for user following the leader
-      setCurrentTxStep('Checking for existing vault...');
-      console.log('Checking for existing vault...');
-      
-      let vaultAddress: string = "0x0000000000000000000000000000000000000000";
-      
-      try {
-        // Use readContract to check if vault exists (this is a view function)
-        const result = await readContract(config, {
-          address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
-          abi: ABIS.TribeVaultFactory,
-          functionName: "getVault",
-          args: [walletAddress as `0x${string}`, userAddress as `0x${string}`]
-        });
-        
-        if (typeof result === 'string' && result !== "0x0000000000000000000000000000000000000000") {
-          vaultAddress = result;
-          console.log('Found existing vault:', vaultAddress);
-        } else {
-          console.log('No vault exists yet, will create one');
-        }
-      } catch (error: any) {
-        console.log('No vault exists yet (read failed):', error.message);
-      }
-      
-      let finalVaultAddress = vaultAddress as `0x${string}`;
-      
-      // If vault doesn't exist, create it
-      if (vaultAddress === "0x0000000000000000000000000000000000000000") {
-        setCurrentTxStep('Creating a new copy trading vault...');
-        console.log('Creating new vault...');
-        
-        const createTx = await writeContractAsync({
-          address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
-          abi: ABIS.TribeVaultFactory,
-          functionName: "createVault",
-          args: [walletAddress as `0x${string}`]
-        });
-        
-        setCurrentTxHash(createTx);
-        console.log('Vault creation transaction:', createTx);
-        
-        setCurrentTxStep('Waiting for vault creation to complete...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Get vault address after creation using readContract
-        setCurrentTxStep('Retrieving your new vault address...');
-        try {
-          const vaultResult = await readContract(config, {
-            address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
-            abi: ABIS.TribeVaultFactory,
-            functionName: "getVault",
-            args: [walletAddress as `0x${string}`, userAddress as `0x${string}`]
-          });
-          
-          if (typeof vaultResult === 'string' && /^0x[0-9a-fA-F]{40}$/.test(vaultResult) && vaultResult !== "0x0000000000000000000000000000000000000000") {
-            finalVaultAddress = vaultResult as `0x${string}`;
-            console.log('New vault created at:', finalVaultAddress);
-          } else {
-            throw new Error('Failed to get a valid vault address after creation');
-          }
-        } catch (error: any) {
-          console.error('Error getting vault after creation:', error);
-          throw new Error(`Failed to retrieve vault address: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      } else {
-        console.log('Using existing vault:', finalVaultAddress);
-        setCurrentTxStep('Using your existing vault...');
-      }
-      
-      // Step 2: Approve token for spending by the vault
-      setCurrentTxStep(`Approving ${selectedToken.symbol} tokens for deposit...`);
-      console.log(`Approving ${selectedToken.symbol} tokens for vault...`);
-      
-      if (!finalVaultAddress || finalVaultAddress === "0x0000000000000000000000000000000000000000" || !/^0x[0-9a-fA-F]{40}$/.test(finalVaultAddress)) {
-        const errorMsg = `Invalid vault address: ${finalVaultAddress}`;
-        console.error(errorMsg);
-        throw new Error(errorMsg);
-      }
-      
-      const approveTx = await writeContractAsync({
-        address: selectedToken.address as `0x${string}`,
-        abi: [
-          {
-            name: "approve",
-            type: "function",
-            stateMutability: "nonpayable",
-            inputs: [
-              { name: "spender", type: "address" },
-              { name: "amount", type: "uint256" }
-            ],
-            outputs: [{ name: "", type: "bool" }]
-          }
-        ],
-        functionName: "approve",
-        args: [finalVaultAddress, depositAmount]
-      });
-      
-      setCurrentTxHash(approveTx);
-      console.log('Token approval transaction:', approveTx);
-      
-      setCurrentTxStep(`Waiting for ${selectedToken.symbol} approval to be confirmed...`);
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Step 3: Deposit token to the vault
-      setCurrentTxStep(`Depositing ${selectedToken.symbol} to your copy trading vault...`);
-      console.log(`Depositing ${selectedToken.symbol} to vault at:`, finalVaultAddress);
-      
-      const depositTx = await writeContractAsync({
-        address: finalVaultAddress as `0x${string}`,
-        abi: ABIS.TribeCopyVault,
-        functionName: "deposit",
-        args: [selectedToken.address as `0x${string}`, depositAmount]
-      });
-      
-      setCurrentTxHash(depositTx);
-      console.log('Deposit transaction:', depositTx);
-      
-      setCurrentTxStep('Deposit completed successfully!');
-      console.log('Deposit flow completed successfully');
-      setDepositSuccess(true);
-      
-      toast({
-        title: "Deposit Successful",
-        description: `You've successfully copied ${leader.name}'s strategy with ${copyAmount} ${selectedToken.symbol}.`,
-      });
+      await depositMultipleTokens([{
+        token: selectedToken.address as `0x${string}`,
+        amount: depositAmount,
+        decimals: tokenDecimals
+      }]);
+
     } catch (error) {
       console.error("Deposit Error:", error);
       toast({
@@ -376,7 +265,6 @@ export default function LeaderProfilePage() {
         title: "Transaction Failed",
         description: error instanceof Error ? error.message : "Failed to complete the deposit. Please try again."
       });
-      
       setIsDepositing(false);
     }
   };
@@ -542,9 +430,9 @@ export default function LeaderProfilePage() {
                 <div className="flex flex-col items-center justify-center gap-4 p-6 text-center">
                     <Loader2 className="h-16 w-16 animate-spin text-primary" />
                     <h3 className="text-xl font-bold">Processing Deposit</h3>
-                    <p className="text-muted-foreground mb-2">{currentTxStep}</p>
+                    <p className="text-muted-foreground mb-2">{depositStep || currentTxStep}</p>
                     
-                    {currentTxHash && (
+                    {(depositTxHash || currentTxHash) && (
                       <div className="w-full bg-muted/50 rounded-lg p-3 mt-2">
                         <p className="text-xs text-muted-foreground mb-1">Transaction Hash:</p>
                         <div className="flex items-center gap-2 justify-center">
