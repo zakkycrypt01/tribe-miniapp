@@ -123,7 +123,7 @@ function LeaderProfileView() {
       </div>
 
       <LpPositions />
-      <ActionHistory history={actionHistory} />
+      <ActionHistory address={leader.walletAddress} />
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
