@@ -38,21 +38,21 @@ const SUPPORTED_TOKENS = [
     name: "Wrapped Ether",
     address: "0x4200000000000000000000000000000000000006", 
     decimals: 18,
-    logoUrl: "/assets/images/tokens/weth.png" 
+    logoUrl: "/assets/images/tokens/eth.png" 
   },
   { 
-    symbol: "DAI", 
-    name: "Dai Stablecoin",
-    address: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", 
+    symbol: "WBTC", 
+    name: "Wrapped BTC",
+    address: "0xcbB7C0006F23900c38EB856149F799620fcb8A4a", 
+    decimals: 8,
+    logoUrl: "/assets/images/tokens/wbtc.png"
+  },
+  { 
+    symbol: "UNI", 
+    name: "Uniswap",
+    address: "0xB62b54F9b13F3bE72A65117a705c930e42563ab4", 
     decimals: 18,
-    logoUrl: "/assets/images/tokens/dai.png"
-  },
-  { 
-    symbol: "USDT", 
-    name: "Tether USD",
-    address: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", 
-    decimals: 6,
-    logoUrl: "/assets/images/tokens/usdt.png"
+    logoUrl: "/assets/images/tokens/uni.png"
   }
 ];
 
@@ -143,11 +143,13 @@ function StatCard({ icon: Icon, title, value, description, valueClassName}: Stat
 }
 
 export default function LeaderProfilePage() {
+  // Move all hook calls to the top of the component 
+  // to ensure consistent order across renders
   const params = useParams();
   const walletAddress = typeof params.id === 'string' ? decodeURIComponent(params.id) : '';
   
   console.log('🔍 Loading leader profile for:', walletAddress);
-
+  
   // Use the hook to fetch leader data
   const { data: contractLeader, isLoading, error } = useReadContract({
     address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
@@ -156,7 +158,7 @@ export default function LeaderProfilePage() {
     args: [walletAddress as `0x${string}`],
     query: { enabled: !!walletAddress },
   });
-
+  
   useEffect(() => {
     if (contractLeader) {
       console.log('📊 Fetched leader profile from contract:', contractLeader);
@@ -165,21 +167,20 @@ export default function LeaderProfilePage() {
       console.error('❌ Error fetching leader profile:', error);
     }
   }, [contractLeader, error]);
-
+  
   const leader = useMemo(() => {
     if (!contractLeader) return null;
     const mappedLeader = mapContractLeaderToLeader(contractLeader);
     console.log('✅ Mapped leader:', mappedLeader);
     return mappedLeader;
   }, [contractLeader]);
-
-  const lpPositions = leader ? getLpPositions(leader.id) : [];
   
+  // All state hooks must be called unconditionally
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [copyAmount, setCopyAmount] = useState('');
   const [selectedToken, setSelectedToken] = useState(SUPPORTED_TOKENS[0]);
   const { toast } = useToast();
-
+  
   const [isDepositing, setIsDepositing] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
   const [currentTxStep, setCurrentTxStep] = useState<string>('');
@@ -191,7 +192,13 @@ export default function LeaderProfilePage() {
     address: userAddress,
     token: selectedToken.address as `0x${string}`,
   });
-
+  
+  // Important: Move all hooks to the top level, before any conditional logic
+  const { writeContractAsync } = useWriteContract();
+  
+  // Get lpPositions only after all hooks are called
+  const lpPositions = leader ? getLpPositions(leader.id) : [];
+  
   if (isLoading || !leader) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -213,9 +220,6 @@ export default function LeaderProfilePage() {
       </div>
     );
   }
-
-  // Define the hooks outside of the handler function
-  const { writeContractAsync } = useWriteContract();
   
   const handleCopyConfirm = async () => {
     if (!copyAmount || parseFloat(copyAmount) <= 0) {

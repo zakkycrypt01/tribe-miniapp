@@ -18,9 +18,11 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
   const isClient = typeof window !== "undefined";
   const [hasSolanaProvider, setHasSolanaProvider] = useState<boolean>(false);
   const [checked, setChecked] = useState<boolean>(false);
-
+  
+  // Ensure effects are defined consistently and don't depend on conditional logic
   useEffect(() => {
     if (!isClient) return;
+    
     let cancelled = false;
     (async () => {
       try {
@@ -38,14 +40,17 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
         }
       }
     })();
+    
     return () => {
       cancelled = true;
     };
   }, [isClient]);
 
+  // Keep this effect separate and unconditional
   useEffect(() => {
     let errorShown = false;
     const origError = console.error;
+    
     console.error = (...args) => {
       if (
         typeof args[0] === "string" &&
@@ -59,12 +64,16 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
       }
       origError(...args);
     };
+    
     return () => {
       console.error = origError;
     };
   }, []);
 
-  if (!isClient || !checked) {
+  // Use a rendering variable instead of early returns that might affect hook order
+  const shouldRender = isClient && checked;
+
+  if (!shouldRender) {
     return null;
   }
 
@@ -82,5 +91,9 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
 }
 
 export function useHasSolanaProvider() {
-  return React.useContext(SolanaProviderContext).hasSolanaProvider;
+  const context = React.useContext(SolanaProviderContext);
+  if (context === undefined) {
+    throw new Error('useHasSolanaProvider must be used within a SafeFarcasterSolanaProvider');
+  }
+  return context.hasSolanaProvider;
 }
