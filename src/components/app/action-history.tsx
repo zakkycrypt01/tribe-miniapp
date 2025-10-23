@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTxHistory } from "@/hooks/use-tx-history";
+import { TestEtherscanAPI } from "./test-etherscan-api";
 
 export function ActionHistory({ address, history: initialHistory }: { address?: string, history?: ActionHistoryItem[] }) {
   // If address is provided, fetch history from Etherscan, otherwise use provided history
@@ -13,11 +14,15 @@ export function ActionHistory({ address, history: initialHistory }: { address?: 
   // Use provided history or fetched history
   const history = initialHistory || fetchedHistory || [];
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>History</CardTitle>
-        <CardDescription>An immutable record of all actions executed from the terminal.</CardDescription>
-      </CardHeader>
+    <div className="space-y-6">
+      <TestEtherscanAPI />
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>History</CardTitle>
+          <CardDescription>An immutable record of all actions executed from the terminal.</CardDescription>
+          {address && <CardDescription className="text-xs mt-1">Fetching data for address: {address}</CardDescription>}
+        </CardHeader>
       <CardContent>
         <div className="rounded-md border">
           <Table>
@@ -76,5 +81,6 @@ export function ActionHistory({ address, history: initialHistory }: { address?: 
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }

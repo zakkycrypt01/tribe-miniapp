@@ -28,18 +28,32 @@ export function useTxHistory(address: string) {
       setError(null);
       
       try {
-        // Use Ethereum mainnet
-        // const url = `https://api.etherscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=999999999&sort=desc&apikey=${process.env.NEXT_PUBLIC_ETHERSCAN_API_KEY}`;
-        const url = `https://api.etherscan.io/v2/api?apikey=${process.env.NEXT_PUBLIC_ETHERSCAN_API_KEY}&chainid=84532&module=account&action=txlist&address=${address}&startblock=0&endblock=9999999999&offset=1&sort=desc`;
-        const response = await fetch(url);
+        // Get API key from environment variable
+        const apiKey = process.env.NEXT_PUBLIC_ETHERSCAN_API_KEY || "NH9T3PWS3WGD7AKF9NV4FJ7GJB71TENBTI"; // Fallback for testing
+        
+        // Use the v2 API endpoint with chainid for Base Goerli (84532)
+        const url = `https://api.etherscan.io/v2/api?apikey=${apiKey}&chainid=84532&module=account&action=txlist&address=${address}&startblock=0&endblock=9999999999&offset=1&sort=desc`;
+        const options = {method: 'GET'};
+        
+        console.log('Fetching from URL:', url);
+        const response = await fetch(url, options);
         const data = await response.json();
         
-        if (data.status !== '1') {
-          throw new Error(`Etherscan API error: ${data.message}`);
+        if (data.status !== '1' && data.message !== 'OK') {
+          throw new Error(`Etherscan API error: ${data.message || 'Unknown error'}`);
         }
         
-        const filteredHistory = processTransactions(data.result);
-        setHistory(filteredHistory);
+        // Log the response for debugging
+        console.log('Etherscan API response:', data);
+        
+        // Check if data.result exists and is an array
+        if (Array.isArray(data.result)) {
+          const filteredHistory = processTransactions(data.result);
+          setHistory(filteredHistory);
+        } else {
+          console.warn('Unexpected response format from Etherscan API:', data);
+          setHistory([]);
+        }
       } catch (err) {
         console.error('Failed to fetch transaction history:', err);
         setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -56,6 +70,12 @@ export function useTxHistory(address: string) {
 
 // Process transactions and identify relevant contract interactions
 function processTransactions(transactions: EtherscanTx[]): ActionHistoryItem[] {
+  // Safety check
+  if (!Array.isArray(transactions)) {
+    console.error('Invalid transactions data:', transactions);
+    return [];
+  }
+  
   const contractInterfaces: { [address: string]: ethers.Interface } = {
     [CONTRACT_ADDRESSES.LEADER_TERMINAL]: new ethers.Interface(ABIS.TribeLeaderTerminal),
     [CONTRACT_ADDRESSES.VAULT_FACTORY]: new ethers.Interface(ABIS.TribeVaultFactory),

@@ -45,7 +45,10 @@ export function LeaderTerminal({ tokens }: { tokens: Token[] }) {
                     <LpPositions/>
                 </TabsContent>
                 <TabsContent value="history" className="pt-6 space-y-6">
-                    <ActionHistory history={actionHistory} />
+                    <ActionHistory 
+                        address="0x109260B1e1b907C3f2CC4d55e9e7AB043CB82D17" 
+                        history={actionHistory} 
+                    />
                 </TabsContent>
             </Tabs>
         </div>
