@@ -61,15 +61,36 @@ export function ActionHistory({ address, history: initialHistory }: { address?: 
                 </TableRow>
               ) : (
                 history.map(item => (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} className="hover:bg-muted/30">
                     <TableCell>
-                      <Badge variant={item.action === 'Swap' ? 'default' : 'secondary'} className={item.action === 'Swap' ? 'bg-accent/80 text-accent-foreground' : ''}>{item.action}</Badge>
+                      <Badge 
+                        variant={item.action === 'Swap' ? 'default' : 
+                                item.action === 'Add Liquidity' ? 'outline' : 
+                                item.action === 'Remove Liquidity' ? 'secondary' : 'destructive'} 
+                        className={item.action === 'Swap' ? 'bg-accent/80 text-accent-foreground' : ''}
+                      >
+                        {item.action}
+                      </Badge>
                     </TableCell>
-                    <TableCell>{item.details}</TableCell>
-                    <TableCell className="text-muted-foreground hidden md:table-cell">{formatDistanceToNow(item.timestamp, { addSuffix: true })}</TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground hidden md:table-cell">{item.gasCost.toFixed(4)} ETH</TableCell>
+                    <TableCell className="max-w-[200px] truncate" title={item.details}>
+                      {item.details}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground hidden md:table-cell">
+                      <span title={item.timestamp.toLocaleString()}>
+                        {formatDistanceToNow(item.timestamp, { addSuffix: true })}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground hidden md:table-cell">
+                      {item.gasCost ? item.gasCost.toFixed(6) : '0.000000'} ETH
+                    </TableCell>
                     <TableCell className="text-right">
-                      <a href={`https://etherscan.io/tx/${item.txHash}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-primary hover:underline">
+                      <a 
+                        href={`https://goerli.basescan.org/tx/${item.txHash}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="inline-flex items-center text-primary hover:underline"
+                        title="View transaction on Base Goerli Explorer"
+                      >
                         <ExternalLink className="size-4" />
                       </a>
                     </TableCell>
