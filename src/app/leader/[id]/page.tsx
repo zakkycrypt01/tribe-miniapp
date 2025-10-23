@@ -180,6 +180,28 @@ export default function LeaderProfilePage() {
   
   const { writeContractAsync } = useWriteContract();
   
+  // Move useDeposit hook to top level to follow React hooks rules
+  const { depositMultipleTokens, isLoading: isDepositLoading, currentStep: depositStep, txHash: depositTxHash, vaultState } = useDeposit({
+    leaderAddress: walletAddress as `0x${string}`,
+    onSuccess: () => {
+      setDepositSuccess(true);
+      if (leader) {
+        toast({
+          title: "Deposit Successful",
+          description: `You've successfully copied ${leader.name}'s strategy with ${copyAmount} ${selectedToken.symbol}.`,
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Transaction Failed",
+        description: error instanceof Error ? error.message : "Failed to complete the deposit. Please try again."
+      });
+      setIsDepositing(false);
+    },
+  });
+  
   const lpPositions = leader ? getLpPositions(leader.id) : [];
   
   if (isLoading || !leader) {
@@ -204,24 +226,7 @@ export default function LeaderProfilePage() {
     );
   }
   
-  const { depositMultipleTokens, isLoading: isDepositLoading, currentStep: depositStep, txHash: depositTxHash, vaultState } = useDeposit({
-    leaderAddress: walletAddress as `0x${string}`,
-    onSuccess: () => {
-      setDepositSuccess(true);
-      toast({
-        title: "Deposit Successful",
-        description: `You've successfully copied ${leader.name}'s strategy with ${copyAmount} ${selectedToken.symbol}.`,
-      });
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Transaction Failed",
-        description: error instanceof Error ? error.message : "Failed to complete the deposit. Please try again."
-      });
-      setIsDepositing(false);
-    },
-  });
+  // Remove duplicate hook declaration since we moved it to the top level
 
   const handleCopyConfirm = async () => {
     if (!copyAmount || parseFloat(copyAmount) <= 0) {
