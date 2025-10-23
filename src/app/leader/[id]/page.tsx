@@ -290,15 +290,21 @@ export default function LeaderProfilePage() {
           args: [userAddress as `0x${string}`, walletAddress as `0x${string}`]
         });
         
-        // Check if the result is a valid address
-        if (typeof result === 'string' && /^0x[0-9a-fA-F]{40}$/.test(result)) {
+        // Check if the result is a valid address and not zero address
+        if (typeof result === 'string' && /^0x[0-9a-fA-F]{40}$/.test(result) && result !== "0x0000000000000000000000000000000000000000") {
           vaultAddress = result;
           console.log('Found existing vault:', vaultAddress);
         } else {
-          console.log('No valid vault address returned:', result);
+          console.log('No vault exists yet:', result);
         }
-      } catch (error) {
-        console.error('Error checking for vault:', error);
+      } catch (error: any) {
+        // If the contract returns no data (0x), it means no vault exists yet
+        // This is expected for new follower-leader pairs
+        if (error?.message?.includes('returned no data') || error?.message?.includes('"0x"')) {
+          console.log('No vault exists yet (contract returned no data)');
+        } else {
+          console.error('Error checking for vault:', error);
+        }
       }
       
       let finalVaultAddress = vaultAddress as `0x${string}`;
@@ -344,16 +350,20 @@ export default function LeaderProfilePage() {
               args: [userAddress as `0x${string}`, walletAddress as `0x${string}`]
             });
             
-            // Check if it's a valid address (20 bytes / 40 hex chars)
-            if (typeof vaultResult === 'string' && /^0x[0-9a-fA-F]{40}$/.test(vaultResult)) {
+            // Check if it's a valid address (20 bytes / 40 hex chars) and not zero address
+            if (typeof vaultResult === 'string' && /^0x[0-9a-fA-F]{40}$/.test(vaultResult) && vaultResult !== "0x0000000000000000000000000000000000000000") {
               finalVaultAddress = vaultResult as `0x${string}`;
               console.log('New vault created at:', finalVaultAddress);
             } else {
               console.error('Invalid vault address returned:', vaultResult);
-              throw new Error('Failed to get a valid vault address');
+              throw new Error('Failed to get a valid vault address after creation');
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error getting vault after creation:', error);
+            // Provide more detailed error message
+            if (error?.message?.includes('returned no data') || error?.message?.includes('"0x"')) {
+              throw new Error('Vault was created but could not retrieve its address. The contract may still be processing.');
+            }
             throw new Error(`Failed to retrieve vault address: ${error instanceof Error ? error.message : String(error)}`);
           }
         } catch (error) {
