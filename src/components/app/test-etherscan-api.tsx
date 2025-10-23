@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { CONTRACT_ADDRESSES } from '@/constants/abis';
 
 export function TestEtherscanAPI() {
   const [data, setData] = useState<any>(null);
@@ -18,7 +19,7 @@ export function TestEtherscanAPI() {
     try {
       // Using the exact URL and options from the user's request
       const url = 'https://api.etherscan.io/v2/api?apikey=NH9T3PWS3WGD7AKF9NV4FJ7GJB71TENBTI&chainid=84532&module=account&action=txlist&address=0x109260B1e1b907C3f2CC4d55e9e7AB043CB82D17&startblock=0&endblock=9999999999&offset=1&sort=desc';
-      const options = {method: 'GET', body: undefined};
+      const options = {method: 'GET'};
       
       const response = await fetch(url, options);
       const responseData = await response.json();
@@ -40,9 +41,27 @@ export function TestEtherscanAPI() {
         <CardDescription>Test the Etherscan API connection</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h3 className="font-medium mb-2">Contract Addresses</h3>
+            <div className="text-xs font-mono bg-slate-100 p-2 rounded overflow-auto max-h-[200px]">
+              <p><strong>LEADER_TERMINAL:</strong> {CONTRACT_ADDRESSES.LEADER_TERMINAL}</p>
+              <p><strong>VAULT_FACTORY:</strong> {CONTRACT_ADDRESSES.VAULT_FACTORY}</p>
+              <p><strong>UNISWAP_V3_ADAPTER:</strong> {CONTRACT_ADDRESSES.UNISWAP_V3_ADAPTER}</p>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-medium mb-2">Test Address</h3>
+            <div className="text-xs font-mono bg-slate-100 p-2 rounded">
+              0x109260B1e1b907C3f2CC4d55e9e7AB043CB82D17
+            </div>
+          </div>
+        </div>
+        
         <Button 
           onClick={fetchTransactions}
           disabled={isLoading}
+          className="w-full"
         >
           {isLoading ? (
             <>
@@ -60,10 +79,12 @@ export function TestEtherscanAPI() {
           </div>
         )}
         
-        {data && (
+        {data && data.result && (
           <div className="p-4 border bg-slate-50 rounded-md">
-            <pre className="text-xs overflow-auto max-h-[400px]">
-              {JSON.stringify(data, null, 2)}
+            <h3 className="font-medium mb-2">Transaction Count: {data.result.length}</h3>
+            <h4 className="text-sm font-medium mb-1">Sample Transaction:</h4>
+            <pre className="text-xs overflow-auto max-h-[300px]">
+              {JSON.stringify(data.result[0], null, 2)}
             </pre>
           </div>
         )}
