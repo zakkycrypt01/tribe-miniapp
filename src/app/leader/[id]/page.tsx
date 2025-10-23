@@ -1,4 +1,3 @@
-
 "use client";
 
 import { getLpPositions } from "@/app/lib/mock-data";
@@ -23,8 +22,9 @@ import ABIS, { CONTRACT_ADDRESSES } from "@/constants/abis";
 import { parseUnits } from "viem";
 import type { Leader } from "@/app/lib/types";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { readContract } from '@wagmi/core';
+import { config } from '@/components/providers/WagmiProvider';
 
-// Define supported tokens with their addresses and decimals
 const SUPPORTED_TOKENS = [
   { 
     symbol: "USDC", 
@@ -60,7 +60,6 @@ const mapContractLeaderToLeader = (contractLeader: any): Leader => {
   const imageMap = new Map(PlaceHolderImages.map(img => [img.id, img]));
   const defaultAvatar = imageMap.get('avatar-1')!;
   
-  // Contract returns: [wallet, strategyName, description, isActive, registrationTime, totalFollowers, totalTvl, performanceFeePercent]
   const wallet = contractLeader[0] || '';
   const strategyName = contractLeader[1] || '';
   const description = contractLeader[2] || '';
@@ -79,16 +78,6 @@ const mapContractLeaderToLeader = (contractLeader: any): Leader => {
     totalFollowers,
     totalTvl: Number(totalTvl),
     performanceFeePercent
-  });
-  console.log('📍 Array breakdown:', {
-    '[0] wallet': contractLeader[0],
-    '[1] strategyName': contractLeader[1],
-    '[2] description': contractLeader[2],
-    '[3] isActive': contractLeader[3],
-    '[4] registrationTime': contractLeader[4],
-    '[5] totalFollowers': contractLeader[5],
-    '[6] totalTvl': contractLeader[6],
-    '[7] performanceFeePercent': contractLeader[7],
   });
   
   return {
@@ -143,14 +132,11 @@ function StatCard({ icon: Icon, title, value, description, valueClassName}: Stat
 }
 
 export default function LeaderProfilePage() {
-  // Move all hook calls to the top of the component 
-  // to ensure consistent order across renders
   const params = useParams();
   const walletAddress = typeof params.id === 'string' ? decodeURIComponent(params.id) : '';
   
   console.log('🔍 Loading leader profile for:', walletAddress);
   
-  // Use the hook to fetch leader data
   const { data: contractLeader, isLoading, error } = useReadContract({
     address: CONTRACT_ADDRESSES.LEADER_REGISTRY as `0x${string}`,
     abi: ABIS.TribeLeaderRegistry,
@@ -175,7 +161,6 @@ export default function LeaderProfilePage() {
     return mappedLeader;
   }, [contractLeader]);
   
-  // All state hooks must be called unconditionally
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [copyAmount, setCopyAmount] = useState('');
   const [selectedToken, setSelectedToken] = useState(SUPPORTED_TOKENS[0]);
@@ -186,17 +171,14 @@ export default function LeaderProfilePage() {
   const [currentTxStep, setCurrentTxStep] = useState<string>('');
   const [currentTxHash, setCurrentTxHash] = useState<string>('');
   
-  // Get user's wallet address and balance
   const { address: userAddress } = useAccount();
   const { data: tokenBalance } = useBalance({
     address: userAddress,
     token: selectedToken.address as `0x${string}`,
   });
   
-  // Important: Move all hooks to the top level, before any conditional logic
   const { writeContractAsync } = useWriteContract();
   
-  // Get lpPositions only after all hooks are called
   const lpPositions = leader ? getLpPositions(leader.id) : [];
   
   if (isLoading || !leader) {
@@ -231,7 +213,6 @@ export default function LeaderProfilePage() {
       return;
     }
     
-    // Check if user has enough balance
     if (tokenBalance && parseFloat(copyAmount) > parseFloat(tokenBalance.formatted)) {
       toast({
         variant: "destructive",
@@ -248,12 +229,10 @@ export default function LeaderProfilePage() {
     setDepositSuccess(false);
 
     try {
-      // Get the selected token information
       const tokenAddress = selectedToken.address;
       const tokenDecimals = selectedToken.decimals;
       const tokenSymbol = selectedToken.symbol;
       
-      // Parse amount with the correct decimals for the selected token
       const depositAmount = parseUnits(copyAmount, tokenDecimals);
       
       console.log('Starting copy trading flow:', {
@@ -268,34 +247,25 @@ export default function LeaderProfilePage() {
       setCurrentTxStep('Checking for existing vault...');
       console.log('Checking for existing vault...');
       
-      // Check if vault already exists - Use leader address and current user address
-      console.log('Checking vault for leader:', walletAddress, 'and user:', userAddress);
-      let vaultAddress = "0x0000000000000000000000000000000000000000";
+      let vaultAddress: string = "0x0000000000000000000000000000000000000000";
       
       try {
-        // First check if vault already exists
-        const result = await writeContractAsync({
+        // Use readContract to check if vault exists (this is a view function)
+        const result = await readContract(config, {
           address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
           abi: ABIS.TribeVaultFactory,
           functionName: "getVault",
           args: [walletAddress as `0x${string}`, userAddress as `0x${string}`]
         });
         
-        // Check if the result is a valid address and not zero address
-        if (typeof result === 'string' && /^0x[0-9a-fA-F]{40}$/.test(result) && result !== "0x0000000000000000000000000000000000000000") {
+        if (typeof result === 'string' && result !== "0x0000000000000000000000000000000000000000") {
           vaultAddress = result;
           console.log('Found existing vault:', vaultAddress);
         } else {
-          console.log('No vault exists yet:', result);
+          console.log('No vault exists yet, will create one');
         }
       } catch (error: any) {
-        // If the contract returns no data (0x), it means no vault exists yet
-        // This is expected for new follower-leader pairs
-        if (error?.message?.includes('returned no data') || error?.message?.includes('"0x"')) {
-          console.log('No vault exists yet (contract returned no data)');
-        } else {
-          console.error('Error checking for vault:', error);
-        }
+        console.log('No vault exists yet (read failed):', error.message);
       }
       
       let finalVaultAddress = vaultAddress as `0x${string}`;
@@ -303,141 +273,94 @@ export default function LeaderProfilePage() {
       // If vault doesn't exist, create it
       if (vaultAddress === "0x0000000000000000000000000000000000000000") {
         setCurrentTxStep('Creating a new copy trading vault...');
-        console.log('No vault found. Creating new vault...');
+        console.log('Creating new vault...');
+        
+        const createTx = await writeContractAsync({
+          address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
+          abi: ABIS.TribeVaultFactory,
+          functionName: "createVault",
+          args: [walletAddress as `0x${string}`]
+        });
+        
+        setCurrentTxHash(createTx);
+        console.log('Vault creation transaction:', createTx);
+        
+        setCurrentTxStep('Waiting for vault creation to complete...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Get vault address after creation using readContract
+        setCurrentTxStep('Retrieving your new vault address...');
         try {
-          // Create vault transaction with leader address as the argument
-          const createTx = await writeContractAsync({
+          const vaultResult = await readContract(config, {
             address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
             abi: ABIS.TribeVaultFactory,
-            functionName: "createVault",
-            args: [walletAddress as `0x${string}`]
+            functionName: "getVault",
+            args: [walletAddress as `0x${string}`, userAddress as `0x${string}`]
           });
           
-          setCurrentTxHash(createTx);
-          console.log('Vault creation transaction:', createTx);
-          
-          // Wait for the transaction to complete
-          setCurrentTxStep('Waiting for vault creation to complete...');
-          
-          // Wait a bit for the transaction to be processed
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Get vault address after creation
-          setCurrentTxStep('Retrieving your new vault address...');
-          try {
-            const vaultResult = await writeContractAsync({
-              address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
-              abi: ABIS.TribeVaultFactory,
-              functionName: "getVault",
-              args: [walletAddress as `0x${string}`, userAddress as `0x${string}`]
-            });
-            
-            // Check if it's a valid address (20 bytes / 40 hex chars) and not zero address
-            if (typeof vaultResult === 'string' && /^0x[0-9a-fA-F]{40}$/.test(vaultResult) && vaultResult !== "0x0000000000000000000000000000000000000000") {
-              finalVaultAddress = vaultResult as `0x${string}`;
-              console.log('New vault created at:', finalVaultAddress);
-            } else {
-              console.error('Invalid vault address returned:', vaultResult);
-              throw new Error('Failed to get a valid vault address after creation');
-            }
-          } catch (error: any) {
-            console.error('Error getting vault after creation:', error);
-            // Provide more detailed error message
-            if (error?.message?.includes('returned no data') || error?.message?.includes('"0x"')) {
-              throw new Error('Vault was created but could not retrieve its address. The contract may still be processing.');
-            }
-            throw new Error(`Failed to retrieve vault address: ${error instanceof Error ? error.message : String(error)}`);
+          if (typeof vaultResult === 'string' && /^0x[0-9a-fA-F]{40}$/.test(vaultResult) && vaultResult !== "0x0000000000000000000000000000000000000000") {
+            finalVaultAddress = vaultResult as `0x${string}`;
+            console.log('New vault created at:', finalVaultAddress);
+          } else {
+            throw new Error('Failed to get a valid vault address after creation');
           }
-        } catch (error) {
-          setCurrentTxStep(`Error creating vault: ${error instanceof Error ? error.message : String(error)}`);
-          throw new Error(`Failed to create vault: ${error instanceof Error ? error.message : String(error)}`);
+        } catch (error: any) {
+          console.error('Error getting vault after creation:', error);
+          throw new Error(`Failed to retrieve vault address: ${error instanceof Error ? error.message : String(error)}`);
         }
       } else {
         console.log('Using existing vault:', finalVaultAddress);
         setCurrentTxStep('Using your existing vault...');
       }
       
-      // Step 2: Approve selected token for spending by the vault
+      // Step 2: Approve token for spending by the vault
       setCurrentTxStep(`Approving ${selectedToken.symbol} tokens for deposit...`);
       console.log(`Approving ${selectedToken.symbol} tokens for vault...`);
       
-      // Validate finalVaultAddress is a proper Ethereum address
       if (!finalVaultAddress || finalVaultAddress === "0x0000000000000000000000000000000000000000" || !/^0x[0-9a-fA-F]{40}$/.test(finalVaultAddress)) {
         const errorMsg = `Invalid vault address: ${finalVaultAddress}`;
         console.error(errorMsg);
-        setCurrentTxStep(errorMsg);
         throw new Error(errorMsg);
       }
       
-      console.log(`Approving ${selectedToken.symbol} for vault at address:`, finalVaultAddress);
+      const approveTx = await writeContractAsync({
+        address: selectedToken.address as `0x${string}`,
+        abi: [
+          {
+            name: "approve",
+            type: "function",
+            stateMutability: "nonpayable",
+            inputs: [
+              { name: "spender", type: "address" },
+              { name: "amount", type: "uint256" }
+            ],
+            outputs: [{ name: "", type: "bool" }]
+          }
+        ],
+        functionName: "approve",
+        args: [finalVaultAddress, depositAmount]
+      });
       
-      try {
-        // Log the parameters for the approve call for debugging
-        console.log('Token approval parameters:', {
-          tokenAddress: selectedToken.address,
-          tokenSymbol: selectedToken.symbol,
-          spender: finalVaultAddress,
-          amount: depositAmount.toString()
-        });
-        
-        const approveTx = await writeContractAsync({
-          address: selectedToken.address as `0x${string}`,
-          abi: [
-            {
-              name: "approve",
-              type: "function",
-              stateMutability: "nonpayable",
-              inputs: [
-                { name: "spender", type: "address" },
-                { name: "amount", type: "uint256" }
-              ],
-              outputs: [{ name: "", type: "bool" }]
-            }
-          ],
-          functionName: "approve",
-          args: [finalVaultAddress, depositAmount]
-        });
-        
-        setCurrentTxHash(approveTx);
-        console.log('Token approval transaction:', approveTx);
-        
-        // Wait a bit for the approval transaction to be processed
-        setCurrentTxStep(`Waiting for ${selectedToken.symbol} approval to be confirmed...`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      } catch (error) {
-        console.error('Error in approve transaction:', error);
-        setCurrentTxStep(`Error approving ${selectedToken.symbol}: ${error instanceof Error ? error.message : String(error)}`);
-        throw new Error(`Failed to approve tokens: ${error instanceof Error ? error.message : String(error)}`);
-      }
+      setCurrentTxHash(approveTx);
+      console.log('Token approval transaction:', approveTx);
       
-      // Step 3: Deposit the selected token to the vault
+      setCurrentTxStep(`Waiting for ${selectedToken.symbol} approval to be confirmed...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Step 3: Deposit token to the vault
       setCurrentTxStep(`Depositing ${selectedToken.symbol} to your copy trading vault...`);
       console.log(`Depositing ${selectedToken.symbol} to vault at:`, finalVaultAddress);
       
-      // Double-check the vault address again
-      if (!finalVaultAddress || finalVaultAddress === "0x0000000000000000000000000000000000000000" || !/^0x[0-9a-fA-F]{40}$/.test(finalVaultAddress)) {
-        const errorMsg = `Cannot deposit: Invalid vault address: ${finalVaultAddress}`;
-        console.error(errorMsg);
-        setCurrentTxStep(errorMsg);
-        throw new Error(errorMsg);
-      }
+      const depositTx = await writeContractAsync({
+        address: finalVaultAddress as `0x${string}`,
+        abi: ABIS.TribeCopyVault,
+        functionName: "deposit",
+        args: [selectedToken.address as `0x${string}`, depositAmount]
+      });
       
-      try {
-        const depositTx = await writeContractAsync({
-          address: finalVaultAddress as `0x${string}`,
-          abi: ABIS.TribeCopyVault,
-          functionName: "deposit",
-          args: [selectedToken.address as `0x${string}`, depositAmount]
-        });
-        
-        setCurrentTxHash(depositTx);
-        console.log('Deposit transaction:', depositTx);
-      } catch (error) {
-        setCurrentTxStep(`Error depositing: ${error instanceof Error ? error.message : String(error)}`);
-        throw new Error(`Failed to deposit to vault: ${error instanceof Error ? error.message : String(error)}`);
-      }
+      setCurrentTxHash(depositTx);
+      console.log('Deposit transaction:', depositTx);
       
-      // Update UI on success
       setCurrentTxStep('Deposit completed successfully!');
       console.log('Deposit flow completed successfully');
       setDepositSuccess(true);
@@ -546,7 +469,6 @@ export default function LeaderProfilePage() {
                     const token = SUPPORTED_TOKENS.find(t => t.symbol === value);
                     if (token) {
                       setSelectedToken(token);
-                      // Reset amount to prevent issues with different token decimals
                       setCopyAmount('');
                     }
                   }}
@@ -563,7 +485,6 @@ export default function LeaderProfilePage() {
                             alt={token.symbol} 
                             className="w-4 h-4 rounded-full"
                             onError={(e) => {
-                              // Fallback for missing token logos
                               (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'%3E%3C/circle%3E%3Cpath d='M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3'%3E%3C/path%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'%3E%3C/line%3E%3C/svg%3E";
                             }}
                           />
