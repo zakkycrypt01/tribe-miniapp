@@ -266,28 +266,19 @@ export default function LeaderProfilePage() {
       
       // Step 1: Get or create vault for user following the leader
       setCurrentTxStep('Checking for existing vault...');
-      console.log('Checking vault for follower (user):', userAddress, 'and leader:', walletAddress);
+      console.log('Checking for existing vault...');
       
-      // Use a read contract call to check if vault already exists
-      // getVault expects (follower, leader) addresses
+      // Check if vault already exists - Use leader address and current user address
+      console.log('Checking vault for leader:', walletAddress, 'and user:', userAddress);
       let vaultAddress = "0x0000000000000000000000000000000000000000";
       
       try {
-        // Read the vault address using the public getter
-        const { readContract } = await import('viem/actions');
-        const { createPublicClient, http } = await import('viem');
-        const { base } = await import('viem/chains');
-        
-        const publicClient = createPublicClient({
-          chain: base,
-          transport: http()
-        });
-        
-        const result = await publicClient.readContract({
+        // First check if vault already exists
+        const result = await writeContractAsync({
           address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
           abi: ABIS.TribeVaultFactory,
           functionName: "getVault",
-          args: [userAddress as `0x${string}`, walletAddress as `0x${string}`]
+          args: [walletAddress as `0x${string}`, userAddress as `0x${string}`]
         });
         
         // Check if the result is a valid address and not zero address
@@ -331,23 +322,14 @@ export default function LeaderProfilePage() {
           // Wait a bit for the transaction to be processed
           await new Promise(resolve => setTimeout(resolve, 2000));
           
-          // Get vault address after creation using read contract
+          // Get vault address after creation
           setCurrentTxStep('Retrieving your new vault address...');
           try {
-            const { readContract } = await import('viem/actions');
-            const { createPublicClient, http } = await import('viem');
-            const { base } = await import('viem/chains');
-            
-            const publicClient = createPublicClient({
-              chain: base,
-              transport: http()
-            });
-            
-            const vaultResult = await publicClient.readContract({
+            const vaultResult = await writeContractAsync({
               address: CONTRACT_ADDRESSES.VAULT_FACTORY as `0x${string}`,
               abi: ABIS.TribeVaultFactory,
               functionName: "getVault",
-              args: [userAddress as `0x${string}`, walletAddress as `0x${string}`]
+              args: [walletAddress as `0x${string}`, userAddress as `0x${string}`]
             });
             
             // Check if it's a valid address (20 bytes / 40 hex chars) and not zero address
