@@ -7,13 +7,13 @@ import { SwapWidget } from "@/components/app/swap-widget";
 import { DexInterface } from "@/components/app/dex-interface";
 import { LpPositions } from "./lp-positions";
 import { ActionHistory } from "./action-history";
-import { getActionHistory, getLpPositions } from "@/app/lib/mock-data";
+import { getLpPositions } from "@/app/lib/mock-data";
 
 
 export function LeaderTerminal({ tokens }: { tokens: Token[] }) {
     const leaderId = 'leader-1';
     const lpPositions = getLpPositions(leaderId);
-    const actionHistory = getActionHistory(leaderId);
+    // We'll use the Etherscan API data instead of mock data for action history
 
     return (
         <div className="p-4 md:p-6">
@@ -47,7 +47,6 @@ export function LeaderTerminal({ tokens }: { tokens: Token[] }) {
                 <TabsContent value="history" className="pt-6 space-y-6">
                     <ActionHistory 
                         address="0x109260B1e1b907C3f2CC4d55e9e7AB043CB82D17" 
-                        history={actionHistory} 
                     />
                 </TabsContent>
             </Tabs>

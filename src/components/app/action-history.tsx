@@ -6,23 +6,25 @@ import { ExternalLink, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useTxHistory } from "@/hooks/use-tx-history";
 
-export function ActionHistory({ address, history: initialHistory }: { address?: string, history?: ActionHistoryItem[] }) {
-  // If address is provided, fetch history from Etherscan, otherwise use provided history
-  const { history: fetchedHistory, isLoading, error, rawData } = useTxHistory(address || "");
-  
-  // Use provided history or fetched history
-  const history = initialHistory || fetchedHistory || [];
+export function ActionHistory({ address }: { address: string }) {
+  // Fetch transaction history from Etherscan API
+  const { history, isLoading, error, rawData } = useTxHistory(address);
   
   // Log the number of transactions we're displaying
-  console.log(`Displaying ${history.length} transactions in ActionHistory table`);
+  console.log(`Displaying ${history.length} transactions in ActionHistory table from API`);
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Transaction History</CardTitle>
+            <Badge variant="outline">{history.length} Transactions</Badge>
           </div>
           <CardDescription>Recent transactions from the connected wallet</CardDescription>
+          <CardDescription className="text-xs mt-1 flex items-center gap-1">
+            <span className="font-medium">Address:</span> 
+            <code className="bg-muted px-1 py-0.5 rounded text-xs">{address}</code>
+          </CardDescription>
         </CardHeader>
       <CardContent>
         <div className="rounded-md border">
@@ -108,6 +110,25 @@ export function ActionHistory({ address, history: initialHistory }: { address?: 
               )}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="mt-4 text-xs text-muted-foreground flex items-center justify-between">
+          <div>
+            {!isLoading && history.length > 0 && (
+              <span>Showing {history.length} most recent transactions</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <span>Powered by</span>
+            <a 
+              href="https://docs.etherscan.io/api-endpoints/accounts#get-a-list-of-normal-transactions-by-address" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Etherscan API
+            </a>
+          </div>
         </div>
       </CardContent>
     </Card>
