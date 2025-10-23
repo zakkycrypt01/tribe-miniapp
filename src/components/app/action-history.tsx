@@ -113,17 +113,7 @@ export function ActionHistory({ address }: { address: string }) {
               <span>Showing {history.length} most recent transactions</span>
             )}
           </div>
-          <div className="flex items-center gap-1">
-            <span>Powered by</span>
-            <a 
-              href="https://docs.etherscan.io/api-endpoints/accounts#get-a-list-of-normal-transactions-by-address" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              Etherscan API
-            </a>
-          </div>
+          
         </div>
       </CardContent>
     </Card>
