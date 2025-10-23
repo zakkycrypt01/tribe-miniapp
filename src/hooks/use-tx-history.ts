@@ -13,12 +13,16 @@ interface EtherscanTx {
   gasUsed: string;
   input: string;
   isError: string;
+  functionName?: string; // Optional field that might be present in the API response
+  methodId?: string;     // Method ID signature
+  blockNumber?: string;  // Block number where the transaction was mined
 }
 
 export function useTxHistory(address: string) {
   const [history, setHistory] = useState<ActionHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rawData, setRawData] = useState<any>(null);
 
   useEffect(() => {
     const fetchTransactionHistory = async () => {
@@ -46,9 +50,13 @@ export function useTxHistory(address: string) {
         // Log the response for debugging
         console.log('Etherscan API response:', data);
         
+        // Store the raw data for components to access if needed
+        setRawData(data);
+        
         // Check if data.result exists and is an array
         if (Array.isArray(data.result)) {
           const filteredHistory = processTransactions(data.result);
+          console.log(`Processed ${filteredHistory.length} transactions from ${data.result.length} results`);
           setHistory(filteredHistory);
         } else {
           console.warn('Unexpected response format from Etherscan API:', data);
@@ -65,7 +73,7 @@ export function useTxHistory(address: string) {
     fetchTransactionHistory();
   }, [address]);
 
-  return { history, isLoading, error };
+  return { history, isLoading, error, rawData };
 }
 
 // Process transactions and identify relevant contract interactions
@@ -89,8 +97,8 @@ function processTransactions(transactions: EtherscanTx[]): ActionHistoryItem[] {
   
   const actionItems: ActionHistoryItem[] = [];
   
-  // Process a limited number of transactions to start with (avoids overwhelming the UI)
-  const transactionsToProcess = transactions.slice(0, 20);
+  // Process transactions (limit to 50 for UI performance)
+  const transactionsToProcess = transactions.slice(0, 50);
   
   console.log('Processing transactions:', transactionsToProcess.length);
   
@@ -99,52 +107,72 @@ function processTransactions(transactions: EtherscanTx[]): ActionHistoryItem[] {
     if (tx.isError === '1') continue;
     
     try {
+      // Default to showing transaction as a Swap
       let action: ActionHistoryItem['action'] = 'Swap';
       let details = 'Transaction';
       
-      // Check if transaction is to one of our contracts
-      const contractInterface = contractInterfaces[tx.to?.toLowerCase()];
-      
-      if (contractInterface && tx.input && tx.input !== '0x') {
-        try {
-          // Try to decode the function call
-          const decodedData = contractInterface.parseTransaction({ data: tx.input });
-          
-          if (decodedData) {
-            // Determine action type and details based on the function name
-            details = decodedData.name || 'Contract interaction';
-            
-            // Handle different function names
-            if (decodedData.name?.includes('swap')) {
-              action = 'Swap';
-              // Extract token symbols if available in args
-              const tokenIn = decodedData.args?.tokenIn || decodedData.args?.tokenA;
-              const tokenOut = decodedData.args?.tokenOut || decodedData.args?.tokenB;
-              if (tokenIn && tokenOut) {
-                details = `Swap tokens`;
-              } else {
-                details = `Executed swap`;
-              }
-            } else if (decodedData.name?.includes('addLiquidity') || decodedData.name?.includes('mint')) {
-              action = 'Add Liquidity';
-              details = `Added liquidity`;
-            } else if (decodedData.name?.includes('removeLiquidity') || decodedData.name?.includes('burn')) {
-              action = 'Remove Liquidity';
-              details = `Removed liquidity`;
-            } else if (decodedData.name?.includes('range') || decodedData.name?.includes('position')) {
-              action = 'Adjust Range';
-              details = `Adjusted position range`;
-            }
-          }
-        } catch (decodeError) {
-          console.debug('Could not decode transaction input:', tx.hash, decodeError);
-        }
-      } else {
-        // For transactions we can't decode, use a generic description
-        if (tx.value && tx.value !== '0') {
+      // First try to get transaction details from the "functionName" field if available
+      if (tx.functionName) {
+        details = tx.functionName;
+        
+        // Classify based on function name keywords
+        if (details.toLowerCase().includes('swap')) {
           action = 'Swap';
-          const valueInEth = parseFloat(ethers.formatEther(tx.value));
-          details = `Transferred ${valueInEth.toFixed(4)} ETH`;
+          details = `Swap (${details})`;
+        } else if (details.toLowerCase().includes('add') || details.toLowerCase().includes('mint') || 
+                  details.toLowerCase().includes('provide')) {
+          action = 'Add Liquidity';
+          details = `Add Liquidity (${details})`;
+        } else if (details.toLowerCase().includes('remove') || details.toLowerCase().includes('burn') ||
+                  details.toLowerCase().includes('withdraw')) {
+          action = 'Remove Liquidity';
+          details = `Remove Liquidity (${details})`;
+        } else if (details.toLowerCase().includes('range') || details.toLowerCase().includes('position')) {
+          action = 'Adjust Range';
+          details = `Adjust Range (${details})`;
+        }
+      }
+      
+      // If there's no function name or it's generic, try to decode using ABIs
+      else if (tx.to) {
+        const contractInterface = contractInterfaces[tx.to?.toLowerCase()];
+        
+        if (contractInterface && tx.input && tx.input !== '0x') {
+          try {
+            // Try to decode the function call
+            const decodedData = contractInterface.parseTransaction({ data: tx.input });
+            
+            if (decodedData) {
+              // Determine action type and details based on the function name
+              details = decodedData.name || 'Contract interaction';
+              
+              // Handle different function names
+              if (decodedData.name?.includes('swap')) {
+                action = 'Swap';
+                details = `Swap`;
+              } else if (decodedData.name?.includes('addLiquidity') || decodedData.name?.includes('mint')) {
+                action = 'Add Liquidity';
+                details = `Added liquidity`;
+              } else if (decodedData.name?.includes('removeLiquidity') || decodedData.name?.includes('burn')) {
+                action = 'Remove Liquidity';
+                details = `Removed liquidity`;
+              } else if (decodedData.name?.includes('range') || decodedData.name?.includes('position')) {
+                action = 'Adjust Range';
+                details = `Adjusted position range`;
+              }
+            }
+          } catch (decodeError) {
+            console.debug('Could not decode transaction input:', tx.hash, decodeError);
+          }
+        }
+      }
+      
+      // For ETH transfers or transactions we can't decode
+      if (tx.value && tx.value !== '0' && !details.includes('Swap') && !details.includes('Liquidity')) {
+        const valueInEth = parseFloat(ethers.formatEther(tx.value));
+        if (valueInEth > 0) {
+          action = 'Swap';
+          details = `Transfer ${valueInEth.toFixed(6)} ETH`;
         }
       }
       

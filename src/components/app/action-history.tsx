@@ -8,17 +8,28 @@ import { useTxHistory } from "@/hooks/use-tx-history";
 
 export function ActionHistory({ address, history: initialHistory }: { address?: string, history?: ActionHistoryItem[] }) {
   // If address is provided, fetch history from Etherscan, otherwise use provided history
-  const { history: fetchedHistory, isLoading, error } = useTxHistory(address || "");
+  const { history: fetchedHistory, isLoading, error, rawData } = useTxHistory(address || "");
   
   // Use provided history or fetched history
   const history = initialHistory || fetchedHistory || [];
+  
+  // Log the number of transactions we're displaying
+  console.log(`Displaying ${history.length} transactions in ActionHistory table`);
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>History</CardTitle>
-          <CardDescription>An immutable record of all actions executed from the terminal.</CardDescription>
-          {address && <CardDescription className="text-xs mt-1">Fetching data for address: {address}</CardDescription>}
+          <div className="flex items-center justify-between">
+            <CardTitle>Transaction History</CardTitle>
+            <Badge variant="outline">{history.length} Transactions</Badge>
+          </div>
+          <CardDescription>Recent transactions from the connected wallet</CardDescription>
+          {address && (
+            <CardDescription className="text-xs mt-1 flex items-center gap-1">
+              <span className="font-medium">Address:</span> 
+              <code className="bg-muted px-1 py-0.5 rounded text-xs">{address}</code>
+            </CardDescription>
+          )}
         </CardHeader>
       <CardContent>
         <div className="rounded-md border">
@@ -61,10 +72,16 @@ export function ActionHistory({ address, history: initialHistory }: { address?: 
                   <TableRow key={item.id} className="hover:bg-muted/30">
                     <TableCell>
                       <Badge 
-                        variant={item.action === 'Swap' ? 'default' : 
-                                item.action === 'Add Liquidity' ? 'outline' : 
-                                item.action === 'Remove Liquidity' ? 'secondary' : 'destructive'} 
-                        className={item.action === 'Swap' ? 'bg-accent/80 text-accent-foreground' : ''}
+                        variant={
+                          item.action === 'Swap' ? 'default' : 
+                          item.action === 'Add Liquidity' ? 'outline' : 
+                          item.action === 'Remove Liquidity' ? 'secondary' : 'destructive'
+                        } 
+                        className={
+                          item.action === 'Swap' ? 'bg-accent/80 text-accent-foreground' : 
+                          item.action === 'Add Liquidity' ? 'bg-green-100 text-green-800 border-green-300' :
+                          item.action === 'Remove Liquidity' ? 'bg-amber-100 text-amber-800 border-amber-300' : ''
+                        }
                       >
                         {item.action}
                       </Badge>
@@ -78,11 +95,13 @@ export function ActionHistory({ address, history: initialHistory }: { address?: 
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-mono text-muted-foreground hidden md:table-cell">
-                      {item.gasCost ? item.gasCost.toFixed(6) : '0.000000'} ETH
+                      <span title={`Gas cost: ${item.gasCost} ETH`}>
+                        {item.gasCost ? item.gasCost.toFixed(6) : '0.000000'} ETH
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <a 
-                        href={`https://goerli.basescan.org/tx/${item.txHash}`} 
+                        href={`https://sepolia.basescan.org/tx/${item.txHash}`} 
                         target="_blank" 
                         rel="noopener noreferrer" 
                         className="inline-flex items-center text-primary hover:underline"
