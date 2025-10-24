@@ -180,7 +180,6 @@ export default function LeaderProfilePage() {
   
   const { writeContractAsync } = useWriteContract();
   
-  // Move useDeposit hook to top level to follow React hooks rules
   const { depositMultipleTokens, isLoading: isDepositLoading, currentStep: depositStep, txHash: depositTxHash, vaultState } = useDeposit({
     leaderAddress: walletAddress as `0x${string}`,
     onSuccess: () => {
@@ -226,8 +225,6 @@ export default function LeaderProfilePage() {
     );
   }
   
-  // Remove duplicate hook declaration since we moved it to the top level
-
   const handleCopyConfirm = async () => {
     if (!copyAmount || parseFloat(copyAmount) <= 0) {
       toast({
