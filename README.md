@@ -5,7 +5,7 @@
 ## 🌟 Overview
 
 Tribe is a Mini App built for Base that integrates with Farcaster's social layer, combining DeFi copy trading with social features. Built using Base's onchain infrastructure and Farcaster Frames, it allows users to:
-- Follow and copy successful traders' strategies automatically
+- Copy expert liquidity provision strategies on Uniswap V3 and Aerodrome - automatically mirror complex LP positions without understanding tick ranges or impermanent loss
 - Track performance metrics of different trading strategies
 - Participate in liquidity provision across multiple DEXs
 - Monitor real-time portfolio performance
