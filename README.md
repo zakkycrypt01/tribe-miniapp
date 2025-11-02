@@ -1,6 +1,6 @@
 # 🏛️ Tribe - Base Mini App for Social Trading
 
-> A Farcaster Mini App built for Base that enables social copy trading within the Base ecosystem. Participating in Base Batch 002 Buildathon.
+> A Farcaster Mini App built for Base that enables LP strategy automation within the Base ecosystem. Participating in Base Batch 002 Buildathon.
 
 ## 🌟 Overview
 
